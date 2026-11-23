@@ -1,0 +1,2913 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Optimizador 3D de Habitación — Catálogo IKEA y Cualquier Tienda</title>
+
+  <!-- Fuente Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        }
+      }
+    };
+  </script>
+
+  <!-- Three.js r128 + OrbitControls (CDNs estables para GitHub Pages) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    canvas {
+      display: block;
+      outline: none;
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .callout-3d {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 15;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen w-screen overflow-hidden bg-slate-50 text-slate-800 select-none">
+
+  <!-- =====================================================================
+       CABECERA PRINCIPAL
+       ===================================================================== -->
+  <header class="z-30 bg-white border-b border-slate-200 px-3 py-2 lg:px-4 shadow-sm shrink-0">
+    <div class="flex items-center justify-between gap-2">
+      <!-- Botón abrir panel muebles en móvil + Título -->
+      <div class="flex items-center gap-2 min-w-0">
+        <button id="btnMobileDrawer" onclick="toggleLeftPanel()"
+          class="lg:hidden p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 active:scale-95 transition shrink-0"
+          aria-label="Abrir gestor de muebles">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </button>
+
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-rose-500 to-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 12l8-4.5M12 12v9M12 12L4 7.5" />
+          </svg>
+        </div>
+
+        <div class="min-w-0">
+          <h1 class="text-xs sm:text-sm md:text-base font-extrabold text-slate-900 truncate leading-tight">
+            Optimizador 3D de Habitación — Catálogo IKEA y Cualquier Tienda
+          </h1>
+          <p class="text-[11px] text-slate-500 truncate">
+            293 × 328 × 248 cm · Armario 237,5×66 · Ventana alféizar 88 cm · Canaleta AC 146,5 cm (Y=207,5)
+          </p>
+        </div>
+      </div>
+
+      <!-- Controles de vista 3D/2D y copiar resumen -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button id="btnView3D" onclick="setViewMode('3d')"
+            class="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            <span>3D</span>
+          </button>
+          <button id="btnView2D" onclick="setViewMode('2d')"
+            class="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            <span>Plano 2D</span>
+          </button>
+        </div>
+
+        <button onclick="copyRoomSummary()"
+          class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition active:scale-95 flex items-center gap-1.5"
+          title="Copiar resumen completo del cuarto">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <span class="hidden md:inline">Copiar resumen</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       CUERPO PRINCIPAL: PANEL IZQUIERDO (MUEBLES) + ÁREA DERECHA (OPCIONES + 3D/2D)
+       ===================================================================== -->
+  <div class="relative flex-1 flex overflow-hidden min-h-0">
+
+    <!-- PANEL IZQUIERDO: Entrada de muebles (3 pestañas) + Lista Seleccionada -->
+    <aside id="leftPanel"
+      class="fixed inset-y-0 left-0 z-40 w-[92vw] max-w-[395px] lg:static lg:w-[385px] lg:max-w-none bg-white border-r border-slate-200 shadow-2xl lg:shadow-none flex flex-col transition-transform duration-300 ease-out -translate-x-full lg:translate-x-0 min-h-0">
+
+      <!-- Cabecera del panel en móvil -->
+      <div class="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100 bg-slate-50 lg:hidden shrink-0">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Añadir y Gestionar Muebles</span>
+        <button onclick="toggleLeftPanel()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600" aria-label="Cerrar panel">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- 3 PESTAÑAS DE ENTRADA DE MUEBLES -->
+      <div class="p-2.5 border-b border-slate-200 bg-slate-50/70 shrink-0">
+        <div class="grid grid-cols-3 gap-1 bg-slate-200/70 p-1 rounded-xl">
+          <button id="inputTabPaste" onclick="setInputTab('paste')"
+            class="px-2 py-1.5 rounded-lg text-[11px] font-bold transition bg-white text-slate-900 shadow-sm">
+            Pegar ficha
+          </button>
+          <button id="inputTabIkea" onclick="setInputTab('ikea')"
+            class="px-2 py-1.5 rounded-lg text-[11px] font-bold transition text-slate-600 hover:text-slate-900">
+            Catálogo IKEA
+          </button>
+          <button id="inputTabManual" onclick="setInputTab('manual')"
+            class="px-2 py-1.5 rounded-lg text-[11px] font-bold transition text-slate-600 hover:text-slate-900">
+            Manual (cm)
+          </button>
+        </div>
+      </div>
+
+      <!-- Contenido desplazable del panel izquierdo -->
+      <div class="flex-1 overflow-y-auto custom-scroll p-3 space-y-4">
+
+        <!-- PESTAÑA 1: PEGAR FICHA / MEDIDAS (IKEA, LEROY, AMAZON, CONFORAMA...) -->
+        <section id="panelPaste" class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label for="pasteTextarea" class="text-xs font-bold text-slate-700">
+              Pega texto de la ficha técnica
+            </label>
+            <button onclick="tryPasteExample()"
+              class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg transition">
+              Probar ejemplo pegado
+            </button>
+          </div>
+
+          <textarea id="pasteTextarea" rows="4" oninput="parsePastedText()"
+            placeholder="Copia y pega aquí el texto de IKEA, Leroy Merlin, Conforama o Amazon...&#10;Ej: SLÄKT Estructura cama con almacenaje. Largo: 206 cm Ancho: 96 cm Altura: 78 cm"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50/50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 p-2.5 text-xs text-slate-800 outline-none resize-none select-text"></textarea>
+
+          <!-- Resultado detectado listo para confirmar -->
+          <div id="parsedPreviewBox" class="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-indigo-800 uppercase tracking-wide">Datos detectados (editables)</span>
+              <span id="parseStatusBadge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Esperando texto</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="col-span-2">
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Nombre del mueble</label>
+                <input id="pName" type="text" placeholder="Ej. SLÄKT cama cajones"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 select-text" />
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Categoría</label>
+                <select id="pCat" onchange="syncDefaultFront('p')"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-indigo-500">
+                  <option value="Cama">Cama</option>
+                  <option value="Escritorio">Escritorio</option>
+                  <option value="Almacenaje">Almacenaje / Cómoda</option>
+                  <option value="Estantería">Estantería / Librería</option>
+                  <option value="Mesita">Mesita / Auxiliar</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Espacio frontal (cm)</label>
+                <input id="pFront" type="number" min="0" max="150" value="55"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-indigo-500 select-text" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Largo/Ancho</label>
+                <input id="pW" type="number" min="10" max="400" placeholder="cm"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-indigo-500 select-text" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Fondo</label>
+                <input id="pD" type="number" min="10" max="300" placeholder="cm"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-indigo-500 select-text" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Alto</label>
+                <input id="pH" type="number" min="10" max="350" placeholder="cm"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-indigo-500 select-text" />
+              </div>
+            </div>
+
+            <button onclick="addFromParsed()"
+              class="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition active:scale-[0.99]">
+              + Confirmar y Añadir al Cuarto
+            </button>
+          </div>
+        </section>
+
+        <!-- PESTAÑA 2: CATÁLOGO RÁPIDO IKEA (MEDIDAS REALES EXACTAS) -->
+        <section id="panelIkea" class="hidden space-y-3">
+          <div class="text-[11px] text-slate-500 bg-amber-50 border border-amber-200 rounded-xl p-2">
+            Pulsa cualquier mueble de IKEA para añadirlo con sus <strong>medidas exteriores reales</strong> y espacio de apertura.
+          </div>
+          <div id="ikeaCatalogContainer" class="space-y-3">
+            <!-- Rellenado dinámicamente -->
+          </div>
+        </section>
+
+        <!-- PESTAÑA 3: ENTRADA MANUAL EXACTA -->
+        <section id="panelManual" class="hidden space-y-2.5">
+          <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span id="manualFormTitle" class="text-xs font-bold text-slate-800">Nuevo mueble a medida</span>
+              <button id="btnCancelEdit" onclick="cancelEditItem()" class="hidden text-[11px] font-semibold text-slate-500 hover:text-slate-800">
+                Cancelar edición
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Nombre del mueble</label>
+              <input id="mName" type="text" placeholder="Ej. Cómoda 4 cajones"
+                class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-rose-500 select-text" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Categoría</label>
+                <select id="mCat" onchange="syncDefaultFront('m')"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-rose-500">
+                  <option value="Cama">Cama</option>
+                  <option value="Escritorio">Escritorio</option>
+                  <option value="Almacenaje">Almacenaje / Cómoda</option>
+                  <option value="Estantería">Estantería / Librería</option>
+                  <option value="Mesita">Mesita / Auxiliar</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Espacio frontal (cm)</label>
+                <input id="mFront" type="number" min="0" max="150" value="55"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-rose-500 select-text" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Largo/Ancho</label>
+                <input id="mW" type="number" min="10" max="400" value="100"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-rose-500 select-text" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Fondo</label>
+                <input id="mD" type="number" min="10" max="300" value="50"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-rose-500 select-text" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Alto</label>
+                <input id="mH" type="number" min="10" max="350" value="75"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-rose-500 select-text" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-1">Color del mueble</label>
+              <div class="flex items-center gap-2">
+                <input id="mColor" type="color" value="#f5f5f4"
+                  class="w-8 h-8 rounded-lg border border-slate-300 cursor-pointer bg-white p-0.5" />
+                <div class="flex flex-wrap gap-1.5">
+                  <button type="button" onclick="setManualColor('#f8f8f6')" class="w-6 h-6 rounded-full border border-slate-300" style="background:#f8f8f6" title="Blanco mate"></button>
+                  <button type="button" onclick="setManualColor('#e2c799')" class="w-6 h-6 rounded-full border border-slate-300" style="background:#e2c799" title="Roble / Pino"></button>
+                  <button type="button" onclick="setManualColor('#f4c7d0')" class="w-6 h-6 rounded-full border border-slate-300" style="background:#f4c7d0" title="Rosa suave"></button>
+                  <button type="button" onclick="setManualColor('#c5dbc8')" class="w-6 h-6 rounded-full border border-slate-300" style="background:#c5dbc8" title="Verde salvia"></button>
+                  <button type="button" onclick="setManualColor('#cbd5e1')" class="w-6 h-6 rounded-full border border-slate-300" style="background:#cbd5e1" title="Gris claro"></button>
+                  <button type="button" onclick="setManualColor('#fde68a')" class="w-6 h-6 rounded-full border border-slate-300" style="background:#fde68a" title="Crema / Mostaza"></button>
+                </div>
+              </div>
+            </div>
+
+            <button id="btnManualSubmit" onclick="submitManualItem()"
+              class="w-full py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition active:scale-[0.99]">
+              + Añadir Mueble y Recalcular Opciones
+            </button>
+          </div>
+        </section>
+
+        <!-- SEPARADOR -->
+        <div class="border-t border-slate-200 pt-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                Muebles de tu Cuarto (<span id="selectedCount">0</span>)
+              </h2>
+              <p class="text-[10px] text-slate-400">Pulsa un mueble colocado para ajustarlo manualmente</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="resetDefaultFurniture()" class="text-[10px] font-semibold text-slate-500 hover:text-indigo-600 bg-slate-100 px-2 py-1 rounded-lg">
+                Ejemplo inicial
+              </button>
+              <button onclick="clearAllFurniture()" class="text-[10px] font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 px-2 py-1 rounded-lg">
+                Vaciar
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista dinámica de muebles seleccionados con estado COLOCADO / DENEGADO -->
+          <div id="selectedItemsList" class="space-y-2">
+            <!-- Rellenado dinámicamente -->
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Backdrop móvil para cerrar drawer izquierdo -->
+    <div id="mobileBackdrop" onclick="toggleLeftPanel()" class="hidden fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-[1px] lg:hidden"></div>
+
+    <!-- =====================================================================
+         ÁREA DERECHA: TARJETAS DE OPCIONES GENERADAS + VISOR 3D/2D + CONTROLES
+         ===================================================================== -->
+    <div class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+
+      <!-- TIRA SUPERIOR DE OPCIONES AUTO-GENERADAS (HASTA 4 ESTRATEGIAS) -->
+      <div class="bg-white border-b border-slate-200 px-3 py-2 shrink-0">
+        <div id="optionsCardsBar" class="flex items-stretch gap-2 overflow-x-auto custom-scroll pb-0.5">
+          <!-- Tarjetas de opciones generadas automáticamente -->
+        </div>
+      </div>
+
+      <!-- CONTENEDOR DEL VISOR (3D Y PLANO 2D) -->
+      <main class="relative flex-1 min-h-0 bg-gradient-to-b from-slate-100 to-slate-200/70 overflow-hidden">
+
+        <!-- Visor 3D -->
+        <div id="viewport3D" class="relative w-full h-full">
+          <div id="overlay3DLabels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+        </div>
+
+        <!-- Visor Plano 2D -->
+        <div id="viewport2D" class="hidden relative w-full h-full bg-white">
+          <canvas id="canvas2D" class="w-full h-full cursor-pointer"></canvas>
+        </div>
+
+        <!-- BARRA FLOTANTE SUPERIOR IZQUIERDA: Notas ergonómicas y alertas de denegación -->
+        <div id="statusOverlayTop" class="absolute top-2.5 left-2.5 z-20 flex flex-col gap-1.5 max-w-[calc(100%-15rem)] pointer-events-none">
+          <div id="ergoNotesPill" class="pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200 shadow-sm rounded-xl px-3 py-1.5 text-[11px] text-slate-700 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <!-- Notas de la opción activa -->
+          </div>
+          <div id="deniedAlertBanner" class="hidden pointer-events-auto bg-red-50/95 backdrop-blur-md border border-red-300 shadow-md rounded-xl px-3 py-2 text-[11px] text-red-800 max-w-md">
+            <!-- Informe de muebles denegados -->
+          </div>
+        </div>
+
+        <!-- BARRA FLOTANTE SUPERIOR DERECHA: Toggles visuales y color de pared -->
+        <div class="absolute top-2.5 right-2.5 z-20 flex flex-col items-end gap-1.5">
+          <div class="bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-xl p-1.5 flex flex-wrap items-center justify-end gap-1">
+            <button id="btnObstacles" onclick="toggleVisualOption('obstacles')"
+              class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-orange-200 bg-orange-50/60 text-orange-800 hover:bg-orange-100 transition flex items-center gap-1"
+              title="Resaltar canaleta AC, columnas, altura 88 cm ventana y radio puerta">
+              <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span class="hidden sm:inline">Obstáculos</span>
+            </button>
+
+            <button id="btnZones" onclick="toggleVisualOption('zones')"
+              class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-emerald-200 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100 transition flex items-center gap-1"
+              title="Mostrar zonas de apertura de cajones, silla, pasillo armario y puerta">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span class="hidden sm:inline">Zonas paso</span>
+            </button>
+
+            <button id="btnDoors" onclick="toggleVisualOption('doors')"
+              class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-sky-200 bg-sky-50/60 text-sky-800 hover:bg-sky-100 transition flex items-center gap-1"
+              title="Abrir puerta de entrada y deslizar armario empotrado">
+              <span>Puertas</span>
+            </button>
+
+            <button id="btnLabels" onclick="toggleVisualOption('labels')"
+              class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+              title="Mostrar u ocultar etiquetas 3D de muebles">
+              <span>Etiquetas</span>
+            </button>
+          </div>
+
+          <!-- Selector compacto de color de paredes -->
+          <div class="bg-white/95 backdrop-blur-md border border-slate-200 shadow-sm rounded-xl px-2 py-1 flex items-center gap-1.5">
+            <span class="text-[10px] font-semibold text-slate-500 hidden sm:inline">Pared:</span>
+            <button onclick="setWallColor('pink')" data-wall="pink" class="wall-dot w-5 h-5 rounded-full border-2 border-rose-500 shadow-sm transition" style="background:#f2d8de" title="Rosa pastel actual"></button>
+            <button onclick="setWallColor('warmWhite')" data-wall="warmWhite" class="wall-dot w-5 h-5 rounded-full border border-slate-300 shadow-sm transition" style="background:#f5f2eb" title="Blanco roto"></button>
+            <button onclick="setWallColor('sage')" data-wall="sage" class="wall-dot w-5 h-5 rounded-full border border-slate-300 shadow-sm transition" style="background:#d2dfd1" title="Verde salvia"></button>
+            <button onclick="setWallColor('sand')" data-wall="sand" class="wall-dot w-5 h-5 rounded-full border border-slate-300 shadow-sm transition" style="background:#e8decb" title="Beige arena"></button>
+          </div>
+        </div>
+
+        <!-- PANEL FLOTANTE DE AJUSTE MANUAL (FINE-TUNING) AL SELECCIONAR UN MUEBLE -->
+        <div id="fineTunePanel"
+          class="hidden absolute bottom-16 right-3 z-30 w-[90vw] max-w-[310px] bg-white/98 backdrop-blur-md border border-slate-200 shadow-2xl rounded-2xl p-3.5 space-y-2.5">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Ajuste Manual</span>
+                <span id="ftDims" class="text-[10px] font-semibold text-slate-500"></span>
+              </div>
+              <h3 id="ftTitle" class="text-xs font-extrabold text-slate-900 truncate mt-0.5">Nombre del mueble</h3>
+            </div>
+            <button onclick="closeFineTune()" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700" aria-label="Cerrar ajuste">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Estado de validación en tiempo real -->
+          <div id="ftValidationBox" class="rounded-xl px-2.5 py-1.5 text-[11px] font-semibold border">
+            <!-- Verde o Rojo con motivo exacto -->
+          </div>
+
+          <!-- Controles X -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-semibold text-slate-600">Posición X (Izda → Dcha)</span>
+              <span class="font-bold text-slate-900"><span id="ftValX">0</span> cm</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="nudgeSelected(-5, 0)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold">-5</button>
+              <input id="ftSliderX" type="range" min="0" max="293" step="1" oninput="sliderMoveSelected()" class="flex-1 accent-indigo-600 cursor-pointer" />
+              <button onclick="nudgeSelected(5, 0)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold">+5</button>
+            </div>
+          </div>
+
+          <!-- Controles Z -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-semibold text-slate-600">Posición Z (Ventana → Puerta)</span>
+              <span class="font-bold text-slate-900"><span id="ftValZ">0</span> cm</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="nudgeSelected(0, -5)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold">-5</button>
+              <input id="ftSliderZ" type="range" min="0" max="328" step="1" oninput="sliderMoveSelected()" class="flex-1 accent-indigo-600 cursor-pointer" />
+              <button onclick="nudgeSelected(0, 5)" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold">+5</button>
+            </div>
+          </div>
+
+          <!-- Botones Rotar 90° y Restablecer opción -->
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button onclick="rotateSelected90()"
+              class="py-1.5 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Rotar 90° (<span id="ftRot">0°</span>)</span>
+            </button>
+            <button onclick="recomputeCurrentLayouts()"
+              class="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition">
+              Auto-reajustar
+            </button>
+          </div>
+        </div>
+
+        <!-- BARRA INFERIOR DE CÁMARAS RÁPIDAS (SOLO EN 3D) -->
+        <div id="cameraBar" class="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-2xl p-1.5 max-w-[94vw] overflow-x-auto">
+          <button onclick="setCameraPreset('perspective')" data-cam="perspective"
+            class="cam-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-slate-900 text-white shadow-sm">
+            Perspectiva
+          </button>
+          <button onclick="setCameraPreset('door')" data-cam="door"
+            class="cam-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition text-slate-600 hover:bg-slate-100">
+            Desde la Puerta
+          </button>
+          <button onclick="setCameraPreset('window')" data-cam="window"
+            class="cam-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition text-slate-600 hover:bg-slate-100">
+            Desde la Ventana
+          </button>
+          <button onclick="setCameraPreset('top')" data-cam="top"
+            class="cam-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition text-slate-600 hover:bg-slate-100">
+            Cenital
+          </button>
+        </div>
+
+        <!-- Aviso de error WebGL amigable -->
+        <div id="webglFallback" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-slate-50 p-6">
+          <div class="max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-md text-center">
+            <h2 class="text-base font-bold text-slate-900 mb-2">Vista 3D no disponible</h2>
+            <p class="text-xs text-slate-600 mb-4">Tu navegador no pudo iniciar WebGL, pero todas las opciones automáticas, validaciones y ajustes funcionan en el Plano 2D Acotado.</p>
+            <button onclick="setViewMode('2d')" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">
+              Ir al Plano 2D Acotado
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast de notificaciones (nunca alert()) -->
+  <div id="toastBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 translate-y-2">
+    <div id="toastMsg" class="bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 flex items-center gap-2">
+      <span>Mensaje</span>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       SCRIPT PRINCIPAL: GEOMETRÍA, CATÁLOGO, PARSER, MOTOR DE OPTIMIZACIÓN,
+       RENDERIZADOR 3D (THREE.JS) Y PLANO 2D ACOTADO (CANVAS)
+       ===================================================================== -->
+  <script>
+    /*************************************************************************
+     * 1. CONSTANTES ARQUITECTÓNICAS EXACTAS DE LA HABITACIÓN (1 unidad = 1 cm)
+     *    X: 0..293 (izquierda a derecha)
+     *    Z: 0..328 (pared ventana a pared puerta)
+     *    Y: 0..248 (suelo a techo)
+     *************************************************************************/
+    const ROOM = {
+      W: 293,
+      L: 328,
+      H: 248,
+      WALL_T: 12,
+      wardrobe: { x1: 0, x2: 66, z1: 0, z2: 237.5, y1: 0, y2: 248 },
+      wardrobeCorridor: { x1: 66, x2: 121, z1: 0, z2: 237.5 }, // 55 cm libres obligatorios
+      door: { x1: 15, x2: 87, w: 72, h: 203, z: 328 },
+      doorSweep: { x1: 0, x2: 92, z1: 237.5, z2: 328 },        // zona de barrido protegida
+      colTop: { x1: 129, x2: 165, w: 36, z1: 0, z2: 13, d: 13, h: 248 },
+      colBottom: { x1: 130, x2: 166.5, w: 36.5, z1: 298, z2: 328, d: 30, h: 248 },
+      window: { x1: 176, x2: 282, w: 106, y1: 88, y2: 210, z: 0 },
+      windowZone: { x1: 170, x2: 288, z1: 0, z2: 55, maxH: 88 }, // regla estricta altura <= 88
+      canaleta: { x1: 288.5, x2: 293, d: 4.5, z1: 0, z2: 146.5, l: 146.5, y1: 207.5, y2: 215, h: 7.5, maxH: 207.5 }
+    };
+
+    const WALL_PALETTES = {
+      pink:      { name: 'Rosa pastel actual', hex: 0xf2d8de, css: '#f2d8de' },
+      warmWhite: { name: 'Blanco roto',        hex: 0xf5f2eb, css: '#f5f2eb' },
+      sage:      { name: 'Verde salvia',       hex: 0xd2dfd1, css: '#d2dfd1' },
+      sand:      { name: 'Beige arena',        hex: 0xe8decb, css: '#e8decb' }
+    };
+
+    const CATEGORY_DEFAULTS = {
+      'Cama':       { front: 55, color: '#f4c7d0', priority: 1 },
+      'Escritorio': { front: 65, color: '#e6cfa8', priority: 2 },
+      'Estantería': { front: 35, color: '#f8f8f6', priority: 3 },
+      'Almacenaje': { front: 45, color: '#e2e8f0', priority: 4 },
+      'Mesita':     { front: 30, color: '#f1f5f9', priority: 5 }
+    };
+
+    /*************************************************************************
+     * 2. CATÁLOGO RÁPIDO IKEA (MEDIDAS EXTERIORES REALES EXACTAS EN CM)
+     *************************************************************************/
+    const IKEA_CATALOG = [
+      {
+        group: 'Camas',
+        items: [
+          { name: 'SLÄKT con cajones/nido', cat: 'Cama', w: 206, d: 96, h: 78, front: 60, color: '#f4c7d0', tag: 'Muy optimizada' },
+          { name: 'HEMNES diván extensible', cat: 'Cama', w: 209, d: 89, h: 83, front: 80, color: '#f8f8f6', tag: 'Cama doble' },
+          { name: 'FLEKKE diván', cat: 'Cama', w: 207, d: 88, h: 86, front: 80, color: '#e2e8f0', tag: 'Alféizar justo' },
+          { name: 'KURA reversible', cat: 'Cama', w: 209, d: 99, h: 116, front: 50, color: '#e2c799', tag: 'Alto 116 cm' },
+          { name: 'Cama juvenil 90×190', cat: 'Cama', w: 200, d: 100, h: 75, front: 55, color: '#f7d6e0', tag: 'Estándar ES' },
+          { name: 'Cama gigante 150×200', cat: 'Cama', w: 210, d: 160, h: 100, front: 55, color: '#cbd5e1', tag: 'Test límites' }
+        ]
+      },
+      {
+        group: 'Escritorios',
+        items: [
+          { name: 'MICKE 105', cat: 'Escritorio', w: 105, d: 50, h: 75, front: 65, color: '#f8f8f6', tag: 'Bajo ventana' },
+          { name: 'MICKE compacto', cat: 'Escritorio', w: 73, d: 50, h: 75, front: 65, color: '#f8f8f6', tag: 'Muy compacto' },
+          { name: 'PÅHL 96', cat: 'Escritorio', w: 96, d: 58, h: 72, front: 65, color: '#e2c799', tag: 'Evolutivo' },
+          { name: 'PÅHL 128', cat: 'Escritorio', w: 128, d: 58, h: 72, front: 65, color: '#e2c799', tag: '128 cm exactos' },
+          { name: 'ALEX escritorio', cat: 'Escritorio', w: 132, d: 58, h: 76, front: 65, color: '#e2e8f0', tag: '132 cm' }
+        ]
+      },
+      {
+        group: 'Almacenaje, Juguetes y Librerías',
+        items: [
+          { name: 'TROFAST escalera', cat: 'Almacenaje', w: 94, d: 44, h: 91, front: 40, color: '#e2c799', tag: 'Alto 91 cm' },
+          { name: 'TROFAST bajo', cat: 'Almacenaje', w: 99, d: 44, h: 56, front: 40, color: '#e2c799', tag: 'Bajo ventana' },
+          { name: 'KALLAX 2×4 vertical', cat: 'Estantería', w: 77, d: 39, h: 147, front: 35, color: '#f8f8f6', tag: 'Vertical' },
+          { name: 'KALLAX 4×2 horizontal', cat: 'Estantería', w: 147, d: 39, h: 77, front: 35, color: '#f8f8f6', tag: 'Bajo 77 cm' },
+          { name: 'BILLY librería 80', cat: 'Estantería', w: 80, d: 28, h: 202, front: 35, color: '#f8f8f6', tag: 'Libra canaleta' },
+          { name: 'BILLY alta con módulo', cat: 'Estantería', w: 80, d: 28, h: 237, front: 35, color: '#fde68a', tag: 'Test canaleta AC' },
+          { name: 'MALM cómoda 3 cajones', cat: 'Almacenaje', w: 80, d: 48, h: 78, front: 45, color: '#f8f8f6', tag: 'Cómoda' },
+          { name: 'SMÅSTAD banco juguetero', cat: 'Almacenaje', w: 90, d: 52, h: 48, front: 45, color: '#c5dbc8', tag: 'Rincón lectura' }
+        ]
+      }
+    ];
+
+    const DEFAULT_ITEMS = [
+      { id: 'init_1', name: 'SLÄKT con cajones/nido', cat: 'Cama', w: 206, d: 96, h: 78, front: 60, color: '#f4c7d0' },
+      { id: 'init_2', name: 'MICKE 105', cat: 'Escritorio', w: 105, d: 50, h: 75, front: 65, color: '#f8f8f6' },
+      { id: 'init_3', name: 'TROFAST bajo', cat: 'Almacenaje', w: 99, d: 44, h: 56, front: 40, color: '#e2c799' }
+    ];
+
+    const PASTE_EXAMPLES = [
+      `SLÄKT Estructura cama con almacenaje IKEA\nLargo: 206 cm\nAncho: 96 cm\nAltura: 78 cm\nEspacio de almacenaje con 3 cajones inferiores.`,
+      `BILLY Librería con módulo superior blanco\nAncho: 80 cm\nFondo: 28 cm\nAltura: 237 cm`,
+      `Escritorio juvenil Leroy Merlin Roble 120x50x75 cm con cajonera lateral`,
+      `Cómoda infantil Conforama 4 cajones\nAncho: 80 cm, Profundidad: 48 cm, Alto: 100 cm`,
+      `KURA Cama reversible pino blanco\nLargo: 209 cm · Ancho: 99 cm · Alto: 116 cm`
+    ];
+    let pasteExampleIdx = 0;
+
+    const STORAGE_KEY = 'opt3d_habitacion_ikea_v1';
+
+    /*************************************************************************
+     * 3. ESTADO GLOBAL
+     *************************************************************************/
+    const state = {
+      items: [],                 // Lista de muebles del usuario
+      options: [],               // Hasta 4 opciones calculadas por el motor
+      activeOptionIdx: 0,
+      selectedPlacementId: null, // ID del mueble seleccionado para ajuste manual
+      editingItemId: null,       // ID si está editando un mueble en pestaña Manual
+      viewMode: '3d',            // '3d' | '2d'
+      wallColorKey: 'pink',
+      leftPanelOpen: false,
+      visuals: {
+        obstacles: false,
+        zones: true,
+        doors: false,
+        labels: true
+      },
+      anim: {
+        doors: 0,
+        obstacles: 0
+      },
+      cameraLerp: {
+        active: false,
+        targetPos: new THREE.Vector3(),
+        targetLook: new THREE.Vector3()
+      }
+    };
+
+    // Variables 3D
+    let scene, camera, renderer, controls, raycaster, pointer;
+    let isWebGLReady = false;
+    let clock = new THREE.Clock();
+    let materials = {};
+    let archGroups = { topWall: null, bottomWall: null, leftWall: null, rightWall: null };
+    let animRefs = {
+      entryDoorPivot: null,
+      wardrobeSlidingDoor: null,
+      obstacleEdges: [],
+      obstacleHelpersGroup: null
+    };
+    let dynamicFurnitureGroup = null;
+    let dynamicZonesGroup = null;
+    let selectableMeshes = [];
+    let labelDOMPool = [];
+
+    /*************************************************************************
+     * 4. ANALIZADOR INTELIGENTE DE FICHAS PEGADAS (IKEA / CUALQUIER WEB)
+     *************************************************************************/
+    function parsePastedText() {
+      const raw = document.getElementById('pasteTextarea').value.trim();
+      const badge = document.getElementById('parseStatusBadge');
+      if (!raw) {
+        badge.textContent = 'Esperando texto';
+        badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600';
+        return;
+      }
+
+      const norm = raw.replace(/,/g, '.');
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+      // 1. Detectar categoría probable por palabras clave
+      const lower = norm.toLowerCase();
+      let cat = 'Almacenaje';
+      if (/\b(cama|div[aá]n|litera|nido|colch[oó]n|sl[aä]kt|hemnes|flekke|kura|brimnes)\b/i.test(lower)) {
+        cat = 'Cama';
+      } else if (/\b(escritorio|mesa de estudio|mesa estudio|micke|p[aå]hl|alex|lagkapten|malm escritorio)\b/i.test(lower)) {
+        cat = 'Escritorio';
+      } else if (/\b(librer[ií]a|estanter[ií]a|billy|kallax|balda|cubo|repisa|vitrina)\b/i.test(lower)) {
+        cat = 'Estantería';
+      } else if (/\b(mesita|mesilla|velador|taburete|auxiliar)\b/i.test(lower)) {
+        cat = 'Mesita';
+      } else if (/\b(c[oó]moda|cajonera|trofast|juguetero|ba[uú]l|armario|sm[aå]stad|malm|banco)\b/i.test(lower)) {
+        cat = 'Almacenaje';
+      }
+
+      // 2. Detectar nombre probable (primera línea limpia sin medidas)
+      let name = lines[0] || 'Mueble importado';
+      name = name.replace(/\b\d+(\.\d+)?\s*[x×*]\s*\d+(\.\d+)?(\s*[x×*]\s*\d+(\.\d+)?)?\s*(cm|mm)?/gi, '').trim();
+      name = name.replace(/(largo|ancho|fondo|alto|altura|profundidad)\s*:?\s*\d+(\.\d+)?\s*(cm|mm)?/gi, '').trim();
+      name = name.replace(/[-·|,]+$/g, '').trim();
+      if (name.length < 2) name = `${cat} importado`;
+      if (name.length > 42) name = name.slice(0, 42).trim();
+
+      // 3. Extraer medidas etiquetadas (Largo, Ancho, Fondo/Profundidad, Alto/Altura)
+      const extractVal = (regex) => {
+        const m = norm.match(regex);
+        if (!m) return null;
+        let val = parseFloat(m[1]);
+        const unit = (m[2] || '').toLowerCase();
+        if (unit === 'mm' || val > 500) val = Math.round(val / 10);
+        else if (unit === 'm' && val < 4) val = Math.round(val * 100);
+        return Math.round(val);
+      };
+
+      const largo = extractVal(/(?:largo|longitud|length)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(cm|mm|m)?\b/i);
+      const ancho = extractVal(/(?:ancho|anchura|width)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(cm|mm|m)?\b/i);
+      const fondo = extractVal(/(?:fondo|profundidad|prof\.?|depth)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(cm|mm|m)?\b/i);
+      const alto  = extractVal(/(?:alto|altura|height)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(cm|mm|m)?\b/i);
+
+      let w = null, d = null, h = null;
+
+      // Caso A: Patrón compacto tipo 120x50x75 cm o 206 x 96 x 78
+      const triple = norm.match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*(cm|mm)?/i);
+
+      if (largo || ancho || fondo || alto) {
+        if (cat === 'Cama') {
+          // En camas, IKEA suele llamar "Largo: 206 cm, Ancho: 96 cm, Altura: 78 cm"
+          w = largo || ancho;
+          d = (largo && ancho) ? ancho : (fondo || ancho);
+          h = alto;
+        } else {
+          w = ancho || largo;
+          d = fondo || (largo && ancho ? Math.min(largo, ancho) : null);
+          h = alto;
+        }
+      }
+
+      if (triple && (!w || !d || !h)) {
+        const unit = (triple[4] || '').toLowerCase();
+        const conv = v => {
+          let n = parseFloat(v);
+          if (unit === 'mm' || n > 500) n = n / 10;
+          return Math.round(n);
+        };
+        const a = conv(triple[1]), b = conv(triple[2]), c = conv(triple[3]);
+        if (!w) w = a;
+        if (!d) d = b;
+        if (!h) h = c;
+      }
+
+      // Fallback: buscar números sueltos seguidos de cm
+      if (!w || !d || !h) {
+        const cmMatches = [...norm.matchAll(/(\d+(?:\.\d+)?)\s*cm\b/gi)].map(m => Math.round(parseFloat(m[1])));
+        if (cmMatches.length >= 3) {
+          if (!w) w = cmMatches[0];
+          if (!d) d = cmMatches[1];
+          if (!h) h = cmMatches[2];
+        }
+      }
+
+      // Asegurar coherencia en camas (largo >= fondo)
+      if (cat === 'Cama' && w && d && d > w) {
+        const tmp = w; w = d; d = tmp;
+      }
+
+      document.getElementById('pName').value = name;
+      document.getElementById('pCat').value = cat;
+      document.getElementById('pFront').value = CATEGORY_DEFAULTS[cat].front;
+      if (w) document.getElementById('pW').value = w;
+      if (d) document.getElementById('pD').value = d;
+      if (h) document.getElementById('pH').value = h;
+
+      if (w && d && h) {
+        badge.textContent = `Detectado: ${w}×${d}×${h} cm (${cat})`;
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700';
+      } else {
+        badge.textContent = 'Revisa las medidas faltantes';
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+      }
+    }
+
+    function tryPasteExample() {
+      const sample = PASTE_EXAMPLES[pasteExampleIdx % PASTE_EXAMPLES.length];
+      pasteExampleIdx++;
+      document.getElementById('pasteTextarea').value = sample;
+      parsePastedText();
+      showToast('Ejemplo cargado y analizado automáticamente');
+    }
+
+    function addFromParsed() {
+      const name = document.getElementById('pName').value.trim();
+      const cat = document.getElementById('pCat').value;
+      const w = parseFloat(document.getElementById('pW').value);
+      const d = parseFloat(document.getElementById('pD').value);
+      const h = parseFloat(document.getElementById('pH').value);
+      const front = Math.max(0, parseFloat(document.getElementById('pFront').value) || 0);
+
+      if (!name || !(w > 0) || !(d > 0) || !(h > 0)) {
+        showToast('Introduce nombre y medidas válidas (Largo, Fondo y Alto en cm)', true);
+        return;
+      }
+
+      addFurnitureItem({
+        name, cat, w: Math.round(w), d: Math.round(d), h: Math.round(h),
+        front: Math.round(front),
+        color: CATEGORY_DEFAULTS[cat].color
+      });
+      document.getElementById('pasteTextarea').value = '';
+    }
+
+    /*************************************************************************
+     * 5. MOTOR DE VALIDACIÓN ESPACIAL ESTRICTA Y AUTO-DISTRIBUCIÓN
+     *************************************************************************/
+
+    /**
+     * Comprueba intersección estricta de dos rectángulos 2D (tolerancia 0.1 cm para contacto limpio)
+     */
+    function rectsOverlap(a, b, eps = 0.1) {
+      return (a.x1 < b.x2 - eps) && (a.x2 > b.x1 + eps) && (a.z1 < b.z2 - eps) && (a.z2 > b.z1 + eps);
+    }
+
+    /**
+     * Devuelve el rectángulo del cuerpo y el rectángulo frontal de apertura según (x, z, rot)
+     * rot = 0:   respaldo en Z-, frente mira a +Z (Sur)    -> dx = w, dz = d
+     * rot = 90:  respaldo en X+, frente mira a -X (Oeste)  -> dx = d, dz = w
+     * rot = 180: respaldo en Z+, frente mira a -Z (Norte)  -> dx = w, dz = d
+     * rot = 270: respaldo en X-, frente mira a +X (Este)   -> dx = d, dz = w
+     */
+    function getPlacementRects(item, x, z, rot) {
+      const r = ((rot % 360) + 360) % 360;
+      const dx = (r === 90 || r === 270) ? item.d : item.w;
+      const dz = (r === 90 || r === 270) ? item.w : item.d;
+      const body = { x1: x, x2: x + dx, z1: z, z2: z + dz, dx, dz };
+
+      const f = item.front || 0;
+      let frontRect = null;
+      if (f > 0) {
+        if (r === 0)   frontRect = { x1: x, x2: x + dx, z1: z + dz, z2: z + dz + f };
+        if (r === 90)  frontRect = { x1: x - f, x2: x, z1: z, z2: z + dz };
+        if (r === 180) frontRect = { x1: x, x2: x + dx, z1: z - f, z2: z };
+        if (r === 270) frontRect = { x1: x + dx, x2: x + dx + f, z1: z, z2: z + dz };
+      }
+      return { body, frontRect, rot: r };
+    }
+
+    /**
+     * Valida TODAS las reglas físicas y ergonómicas de una posición concreta
+     */
+    function validatePlacement(item, x, z, rot, otherPlacements = []) {
+      const violations = [];
+      const codes = new Set();
+
+      if (item.h > ROOM.H) {
+        violations.push(`Supera la altura del techo (${item.h} > ${ROOM.H} cm)`);
+        codes.add('ceiling');
+      }
+
+      const { body, frontRect } = getPlacementRects(item, x, z, rot);
+
+      // 1. Límites de la habitación
+      if (body.x1 < -0.1 || body.z1 < -0.1 || body.x2 > ROOM.W + 0.1 || body.z2 > ROOM.L + 0.1) {
+        violations.push('Sobresale fuera de las paredes de la habitación (293×328 cm)');
+        codes.add('bounds');
+      }
+
+      // 2. Armario empotrado
+      if (rectsOverlap(body, ROOM.wardrobe)) {
+        violations.push('Choca con el armario empotrado (X:0–66, Z:0–237,5 cm)');
+        codes.add('wardrobe');
+      }
+
+      // 3. Pasillo obligatorio frente al armario empotrado (55 cm libres: X 66..121, Z 0..237.5)
+      if (rectsOverlap(body, ROOM.wardrobeCorridor)) {
+        violations.push('Invade el paso obligatorio del armario empotrado (55 cm libres en X:66–121 cm)');
+        codes.add('wardrobe_corridor');
+      }
+
+      // 4. Barrido protegido de la puerta de entrada (X:0..92, Z:237.5..328)
+      if (rectsOverlap(body, ROOM.doorSweep)) {
+        violations.push('Invade el radio de apertura de la puerta de entrada (X:0–92, Z:237,5–328 cm)');
+        codes.add('door');
+      }
+
+      // 5. Columna superior (36x13)
+      if (rectsOverlap(body, ROOM.colTop)) {
+        violations.push('Choca con la columna superior (X:129–165, Z:0–13 cm)');
+        codes.add('col_top');
+      }
+
+      // 6. Columna inferior (36.5x30)
+      if (rectsOverlap(body, ROOM.colBottom)) {
+        violations.push('Choca con la columna inferior (X:130–166,5, Z:298–328 cm)');
+        codes.add('col_bottom');
+      }
+
+      // 7. Regla estricta de ventana (altura <= 88 cm si toca X:170..288, Z < 55)
+      if (item.h > ROOM.windowZone.maxH && rectsOverlap(body, ROOM.windowZone)) {
+        violations.push(`Supera el alféizar de la ventana (${item.h} cm > máx. 88 cm)`);
+        codes.add('window_height');
+      }
+
+      // 8. Regla estricta de canaleta AC (pared derecha X > 288.5, Z < 146.5, altura > 207.5 cm)
+      if (item.h > ROOM.canaleta.maxH && rectsOverlap(body, ROOM.canaleta)) {
+        violations.push(`Choca con la canaleta AC (${item.h} cm > máx. 207,5 cm en pared derecha Z < 146,5 cm)`);
+        codes.add('canaleta_ac');
+      }
+
+      // 9. Solapamiento con otros muebles colocados (cuerpo vs cuerpo, y cuerpo vs zona frontal ajena)
+      for (const other of otherPlacements) {
+        if (other.item.id === item.id) continue;
+        const oRects = getPlacementRects(other.item, other.x, other.z, other.rot);
+        if (rectsOverlap(body, oRects.body)) {
+          violations.push(`Solapa con "${other.item.name}"`);
+          codes.add('overlap_furniture');
+        }
+        if (oRects.frontRect && rectsOverlap(body, oRects.frontRect)) {
+          violations.push(`Bloquea la apertura/uso frontal de "${other.item.name}"`);
+          codes.add('blocks_other_front');
+        }
+      }
+
+      // 10. Verificación de la zona frontal de uso propia (cajones, silla, acceso)
+      if (frontRect) {
+        if (frontRect.x1 < -0.1 || frontRect.z1 < -0.1 || frontRect.x2 > ROOM.W + 0.1 || frontRect.z2 > ROOM.L + 0.1) {
+          violations.push('Sin espacio frontal suficiente (choca contra una pared)');
+          codes.add('front_wall');
+        }
+        if (rectsOverlap(frontRect, ROOM.wardrobe)) {
+          violations.push('La apertura frontal choca contra el armario empotrado');
+          codes.add('front_wardrobe');
+        }
+        if (rectsOverlap(frontRect, ROOM.colTop) || rectsOverlap(frontRect, ROOM.colBottom)) {
+          violations.push('La apertura frontal choca con una columna');
+          codes.add('front_column');
+        }
+        for (const other of otherPlacements) {
+          if (other.item.id === item.id) continue;
+          const oRects = getPlacementRects(other.item, other.x, other.z, other.rot);
+          if (rectsOverlap(frontRect, oRects.body)) {
+            violations.push(`Su apertura frontal queda bloqueada por "${other.item.name}"`);
+            codes.add('front_blocked');
+          }
+        }
+      }
+
+      // 11. Paso mínimo de entrada al cuarto (pasillo de entrada X:92..130, Z:255..328)
+      const entryGateway = { x1: 92, x2: 128, z1: 255, z2: 328 };
+      if (rectsOverlap(body, entryGateway)) {
+        violations.push('Bloquea el acceso desde la puerta hacia el interior del cuarto');
+        codes.add('entry_blocked');
+      }
+
+      return {
+        valid: violations.length === 0,
+        violations,
+        codes: [...codes],
+        body,
+        frontRect
+      };
+    }
+
+    /**
+     * Genera coordenadas candidatas realistas (pegadas a paredes, esquinas, columnas, límite canaleta y muebles ya colocados)
+     */
+    function buildCandidatePositions(item, placed) {
+      const candidates = [];
+      const seen = new Set();
+
+      const addCand = (x, z, rot, wallTag) => {
+        const rx = Math.round(x * 2) / 2;
+        const rz = Math.round(z * 2) / 2;
+        const key = `${rx}|${rz}|${rot}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        candidates.push({ x: rx, z: rz, rot, wallTag });
+      };
+
+      // A) Pegado a PARED DERECHA (X2 = 293, rot = 90 -> mira al Oeste)
+      {
+        const dx = item.d, dz = item.w;
+        const x = ROOM.W - dx;
+        const zPoints = new Set([
+          0, 13, 55, 56, 146.5, 147,
+          ROOM.L - dz,
+          ROOM.colBottom.z1 - dz
+        ]);
+        // Acoplar justo antes/después de muebles existentes
+        placed.forEach(p => {
+          const pr = getPlacementRects(p.item, p.x, p.z, p.rot).body;
+          zPoints.add(pr.z2 + 1);
+          zPoints.add(pr.z1 - dz - 1);
+        });
+        // Malla fina cada 8 cm
+        for (let z = 0; z <= ROOM.L - dz; z += 8) zPoints.add(z);
+        zPoints.forEach(z => {
+          if (z >= 0 && z <= ROOM.L - dz + 0.1) addCand(x, z, 90, 'right');
+        });
+      }
+
+      // B) Pegado a PARED SUPERIOR / VENTANA (Z1 = 0, rot = 0 -> mira al Sur)
+      {
+        const dx = item.w, dz = item.d;
+        const xPoints = new Set([
+          165, 166, ROOM.W - dx, 121, 66, 68, 129 - dx
+        ]);
+        placed.forEach(p => {
+          const pr = getPlacementRects(p.item, p.x, p.z, p.rot).body;
+          xPoints.add(pr.x1 - dx - 1);
+          xPoints.add(pr.x2 + 1);
+        });
+        for (let x = 66; x <= ROOM.W - dx; x += 8) xPoints.add(x);
+        xPoints.forEach(x => {
+          if (x >= 66 && x <= ROOM.W - dx + 0.1) {
+            addCand(x, 0, 0, x >= 165 ? 'window' : 'top_niche');
+            // También enrasado delante de la columna superior (Z = 13)
+            addCand(x, 13, 0, 'top_col_flush');
+          }
+        });
+      }
+
+      // C) Pegado a PARED INFERIOR (Z2 = 328, rot = 180 -> mira al Norte)
+      {
+        const dx = item.w, dz = item.d;
+        const z = ROOM.L - dz;
+        const xPoints = new Set([
+          166.5, 167, ROOM.W - dx, 121
+        ]);
+        placed.forEach(p => {
+          const pr = getPlacementRects(p.item, p.x, p.z, p.rot).body;
+          xPoints.add(pr.x1 - dx - 1);
+          xPoints.add(pr.x2 + 1);
+        });
+        for (let x = 121; x <= ROOM.W - dx; x += 8) xPoints.add(x);
+        xPoints.forEach(x => {
+          if (x >= 121 && x <= ROOM.W - dx + 0.1) {
+            addCand(x, z, 180, 'bottom');
+            // Enrasado delante de la columna inferior (Z2 = 298)
+            if (ROOM.colBottom.z1 - dz >= 0) {
+              addCand(x, ROOM.colBottom.z1 - dz, 180, 'bottom_col_flush');
+            }
+          }
+        });
+      }
+
+      // D) Orientación rot=270 (mirando al Este) o enrasado paralelo a columna inferior/central
+      {
+        const dx = item.d, dz = item.w;
+        const xPoints = [121, 166.5];
+        for (const x of xPoints) {
+          for (let z = 0; z <= ROOM.L - dz; z += 16) {
+            addCand(x, z, 270, 'mid_east');
+          }
+        }
+      }
+
+      return candidates;
+    }
+
+    /**
+     * Calcula el motivo técnico exacto cuando un mueble no encuentra ninguna posición válida
+     */
+    function diagnoseDenialReason(item, placed) {
+      if (item.h > ROOM.H) {
+        return `Supera la altura del techo (${item.h} cm > ${ROOM.H} cm).`;
+      }
+
+      // Probar en habitación vacía primero para saber si es imposible por arquitectura
+      const emptyCands = buildCandidatePositions(item, []);
+      const emptyReasonCounts = {};
+      let validInEmpty = false;
+
+      for (const c of emptyCands) {
+        const res = validatePlacement(item, c.x, c.z, c.rot, []);
+        if (res.valid) { validInEmpty = true; break; }
+        res.codes.forEach(code => { emptyReasonCounts[code] = (emptyReasonCounts[code] || 0) + 1; });
+      }
+
+      if (!validInEmpty) {
+        if (item.h > ROOM.canaleta.maxH && item.h > ROOM.windowZone.maxH) {
+          return `Alto ${item.h} cm: choca con la canaleta AC (máx. 207,5 cm en Z<146,5) y no cabe en el resto del cuarto sin bloquear paso.`;
+        }
+        if (item.d > 170 || item.w > 293) {
+          return `Dimensiones (${item.w}×${item.d} cm) incompatibles con el hueco útil (227×328 cm) respetando armario y puerta.`;
+        }
+        return `Imposible encajar (${item.w}×${item.d}×${item.h} cm) sin invadir el paso del armario (55 cm), la puerta o las columnas.`;
+      }
+
+      // Si cabía vacío pero no con los otros muebles ya colocados
+      const busyCands = buildCandidatePositions(item, placed);
+      const reasons = new Set();
+      let hitCanaleta = false;
+      let hitWindow = false;
+      let hitWardrobe = false;
+      let hitOverlap = false;
+
+      for (const c of busyCands) {
+        const res = validatePlacement(item, c.x, c.z, c.rot, placed);
+        if (res.codes.includes('canaleta_ac') && res.codes.length <= 2) hitCanaleta = true;
+        if (res.codes.includes('window_height') && res.codes.length <= 2) hitWindow = true;
+        if (res.codes.includes('wardrobe_corridor')) hitWardrobe = true;
+        if (res.codes.includes('overlap_furniture') || res.codes.includes('blocks_other_front') || res.codes.includes('front_blocked')) hitOverlap = true;
+      }
+
+      const parts = [];
+      if (item.h > ROOM.canaleta.maxH && hitCanaleta) {
+        parts.push(`choca con la canaleta AC (alto ${item.h} > 207,5 cm) y el tramo libre Z≥146,5 ya está ocupado`);
+      }
+      if (item.h > ROOM.windowZone.maxH && hitWindow) {
+        parts.push(`supera el alféizar de la ventana (88 cm)`);
+      }
+      if (hitOverlap) {
+        parts.push(`falta pared/suelo libre sin solapar ni bloquear aperturas de otros muebles`);
+      } else if (hitWardrobe) {
+        parts.push(`invadiría el pasillo obligatorio del armario empotrado (55 cm)`);
+      }
+
+      if (parts.length === 0) {
+        return `Sin espacio compatible junto al resto de muebles sin invadir pasillo del armario o radio de puerta.`;
+      }
+      return `Denegado: ${parts.join('; ')}.`;
+    }
+
+    /**
+     * Evalúa una posición candidata según la estrategia (A, B, C o D)
+     */
+    function scoreCandidateForStrategy(strategy, item, cand, placed) {
+      const { x, z, rot, wallTag } = cand;
+      const { body } = getPlacementRects(item, x, z, rot);
+      let s = 0;
+
+      // Bonificación universal por alejarse del armario empotrado (más amplitud visual)
+      s += (body.x1 - 121) * 0.25;
+      // Bonificación por apoyarse contra paredes exteriores reales
+      if (wallTag === 'right' || wallTag === 'window' || wallTag === 'bottom') s += 25;
+      // Bonificación por enrasar limpiamente con columnas o esquinas
+      if (Math.abs(body.x1 - 166.5) < 2 || Math.abs(body.x1 - 165) < 2) s += 14;
+      if (Math.abs(body.z1 - 0) < 1 || Math.abs(body.z2 - ROOM.L) < 1) s += 12;
+
+      // Si es librería alta (> 207.5 cm), premiar tramo libre de canaleta en pared derecha
+      if (item.h > ROOM.canaleta.maxH && wallTag === 'right' && body.z1 >= ROOM.canaleta.z2) {
+        s += 45;
+      }
+
+      // Estrategias diferenciadas
+      if (strategy === 'A') {
+        // Estrategia A: Cama en pared derecha hacia la ventana + escritorio/muebles zona inferior
+        if (item.cat === 'Cama') {
+          if (rot === 90 && wallTag === 'right') s += 140 - body.z1 * 0.9;
+          else s -= 40;
+        } else if (item.cat === 'Escritorio') {
+          // Luz natural lateral izquierda al trabajar mirando a pared derecha en tramo inferior
+          if (rot === 90 && wallTag === 'right' && body.z1 >= 140) s += 110;
+          else if (wallTag === 'bottom') s += 70;
+          else if (wallTag === 'window') s += 60;
+        } else {
+          if (wallTag === 'bottom') s += 60;
+          if (wallTag === 'right') s += 50;
+          if (wallTag === 'top_niche') s += 35;
+        }
+      } else if (strategy === 'B') {
+        // Estrategia B: Estudio / mueble bajo ventana (luz frontal) + Cama en pared derecha hacia puerta
+        if (item.cat === 'Cama') {
+          if (rot === 90 && wallTag === 'right') s += 140 + body.z2 * 0.65;
+          else s -= 40;
+        } else if (item.cat === 'Escritorio') {
+          if (wallTag === 'window' && rot === 0) s += 180;
+          else if (wallTag === 'right' && body.z1 < 120) s += 80;
+        } else {
+          if (wallTag === 'right' && body.z1 < 130) s += 65;
+          if (wallTag === 'window' && item.h <= 88) s += 60;
+          if (wallTag === 'bottom') s += 55;
+        }
+      } else if (strategy === 'C') {
+        // Estrategia C: Cama perpendicular/bajo ventana o zona superior + Escritorio pared derecha
+        if (item.cat === 'Cama') {
+          if (rot === 0 && (wallTag === 'window' || wallTag === 'top_col_flush' || wallTag === 'top_niche')) s += 170;
+          else if (rot === 180 && (wallTag === 'bottom' || wallTag === 'bottom_col_flush')) s += 135;
+          else if (rot === 90 && wallTag === 'right' && body.z1 >= 45 && body.z1 <= 115) s += 110; // centrada en pared derecha
+        } else if (item.cat === 'Escritorio') {
+          if (rot === 90 && wallTag === 'right') s += 140;
+          else if (wallTag === 'bottom') s += 105;
+          else if (wallTag === 'window') s += 90;
+        } else {
+          if (wallTag === 'bottom') s += 75;
+          if (wallTag === 'right') s += 60;
+        }
+      } else if (strategy === 'D') {
+        // Estrategia D: Máxima zona central de juego libre (compactando contra pared derecha y extremos)
+        const distFromCenter = Math.hypot(((body.x1 + body.x2) / 2) - 155, ((body.z1 + body.z2) / 2) - 164);
+        s += distFromCenter * 0.85;
+        if (item.cat === 'Cama' && rot === 90 && wallTag === 'right') {
+          // Dejar el hueco superior compacto para el resto de muebles
+          s += 115 + (body.z2 > 315 ? 40 : 0);
+        }
+        if (item.cat !== 'Cama') {
+          if (wallTag === 'right') s += 85;
+          if (wallTag === 'bottom') s += 80;
+          if (wallTag === 'window') s += 70;
+        }
+      }
+
+      // Pequeña penalización si el escritorio queda de espaldas a la ventana
+      if (item.cat === 'Escritorio' && rot === 180) s -= 15;
+
+      return s;
+    }
+
+    /**
+     * Calcula m² de suelo libre real y distancia mínima al armario empotrado
+     */
+    function computeLayoutMetrics(placements) {
+      const step = 5;
+      let freeCells = 0;
+      let centralFreeCells = 0;
+
+      for (let x = step / 2; x < ROOM.W; x += step) {
+        for (let z = step / 2; z < ROOM.L; z += step) {
+          const pt = { x1: x - 1, x2: x + 1, z1: z - 1, z2: z + 1 };
+          if (rectsOverlap(pt, ROOM.wardrobe, 0)) continue;
+          if (rectsOverlap(pt, ROOM.colTop, 0)) continue;
+          if (rectsOverlap(pt, ROOM.colBottom, 0)) continue;
+
+          let occupied = false;
+          for (const p of placements) {
+            const b = getPlacementRects(p.item, p.x, p.z, p.rot).body;
+            if (rectsOverlap(pt, b, 0)) { occupied = true; break; }
+          }
+          if (!occupied) {
+            freeCells++;
+            if (x >= 66 && x <= 210 && z >= 40 && z <= 270) centralFreeCells++;
+          }
+        }
+      }
+
+      const cellAreaM2 = (step * step) / 10000;
+      const freeFloorM2 = +(freeCells * cellAreaM2).toFixed(2);
+      const centralM2 = +(centralFreeCells * cellAreaM2).toFixed(2);
+
+      // Distancia mínima desde el armario empotrado (X=66) en Z: 0..237.5
+      let minWardrobeDist = ROOM.W - ROOM.wardrobe.x2; // 227 cm
+      for (const p of placements) {
+        const b = getPlacementRects(p.item, p.x, p.z, p.rot).body;
+        if (b.z1 < ROOM.wardrobe.z2 && b.z2 > ROOM.wardrobe.z1) {
+          const d = Math.max(0, b.x1 - ROOM.wardrobe.x2);
+          if (d < minWardrobeDist) minWardrobeDist = d;
+        }
+      }
+      minWardrobeDist = Math.round(minWardrobeDist);
+
+      // Notas ergonómicas automáticas
+      const notes = [];
+      notes.push(`Paso al armario: ${minWardrobeDist} cm`);
+
+      const desk = placements.find(p => p.item.cat === 'Escritorio');
+      if (desk) {
+        const db = getPlacementRects(desk.item, desk.x, desk.z, desk.rot).body;
+        if (desk.rot === 0 && db.z1 < 20 && db.x2 > 175) {
+          notes.push('Luz natural frontal en escritorio');
+        } else if (desk.rot === 90 && db.x2 > 280) {
+          notes.push('Luz natural lateral izda. (ergonómica)');
+        } else {
+          notes.push('Zona de estudio despejada');
+        }
+      }
+
+      const tall = placements.find(p => p.item.h > ROOM.canaleta.maxH);
+      if (tall) {
+        notes.push('Canaleta AC librada correctamente');
+      }
+
+      return { freeFloorM2, centralM2, minWardrobeDist, notes };
+    }
+
+    /**
+     * Ejecuta una estrategia completa y devuelve la opción con colocados, denegados y puntuación
+     */
+    function runStrategy(strategyDef, items) {
+      // Ordenar por prioridad: Cama -> Escritorio -> Estantería -> Almacenaje -> Mesita
+      const sorted = [...items].sort((a, b) => {
+        const pa = CATEGORY_DEFAULTS[a.cat]?.priority ?? 9;
+        const pb = CATEGORY_DEFAULTS[b.cat]?.priority ?? 9;
+        if (pa !== pb) return pa - pb;
+        return (b.w * b.d) - (a.w * a.d);
+      });
+
+      // Para Estrategia B, priorizar el escritorio bajo ventana justo después de la cama (o incluso antes si el escritorio es <= 88 cm)
+      if (strategyDef.key === 'B') {
+        sorted.sort((a, b) => {
+          const order = { 'Escritorio': 1, 'Cama': 2, 'Estantería': 3, 'Almacenaje': 4, 'Mesita': 5 };
+          const pa = order[a.cat] ?? 9;
+          const pb = order[b.cat] ?? 9;
+          if (pa !== pb) return pa - pb;
+          return (b.w * b.d) - (a.w * a.d);
+        });
+      }
+
+      const placed = [];
+      const denied = [];
+
+      for (const item of sorted) {
+        if (item.h > ROOM.H) {
+          denied.push({ item, reason: `Supera la altura del techo (${item.h} cm > ${ROOM.H} cm).` });
+          continue;
+        }
+
+        const cands = buildCandidatePositions(item, placed);
+        let best = null;
+        let bestScore = -Infinity;
+
+        for (const c of cands) {
+          const check = validatePlacement(item, c.x, c.z, c.rot, placed);
+          if (!check.valid) continue;
+          const sc = scoreCandidateForStrategy(strategyDef.key, item, c, placed);
+          if (sc > bestScore) {
+            bestScore = sc;
+            best = { item, x: c.x, z: c.z, rot: c.rot, wallTag: c.wallTag };
+          }
+        }
+
+        if (best) {
+          placed.push(best);
+        } else {
+          denied.push({ item, reason: diagnoseDenialReason(item, placed) });
+        }
+      }
+
+      const metrics = computeLayoutMetrics(placed);
+      // Puntuación global (0..100)
+      const ratioPlaced = items.length ? (placed.length / items.length) : 1;
+      let score = Math.round(
+        ratioPlaced * 60 +
+        Math.min(20, metrics.freeFloorM2 * 4.5) +
+        Math.min(15, (metrics.minWardrobeDist - 55) * 0.2) +
+        (metrics.notes.some(n => n.includes('Luz natural')) ? 5 : 0)
+      );
+      score = Math.max(10, Math.min(99, score));
+
+      return {
+        key: strategyDef.key,
+        title: strategyDef.title,
+        subtitle: strategyDef.subtitle,
+        placed,
+        denied,
+        score,
+        ...metrics
+      };
+    }
+
+    /**
+     * Genera hasta 4 opciones distintas y actualiza toda la UI + 3D + 2D
+     */
+    function recomputeCurrentLayouts(preserveSelectedId = false) {
+      const strategies = [
+        { key: 'B', title: 'Estudio bajo Ventana', subtitle: 'Luz frontal y cama en zona puerta' },
+        { key: 'A', title: 'Cama hacia Ventana',   subtitle: 'Luz lateral izda. y paso limpio' },
+        { key: 'C', title: 'Cama Transversal / Alterna', subtitle: 'Reparto alternativo de paredes' },
+        { key: 'D', title: 'Máximo Suelo Central', subtitle: 'Compactada contra perímetro' }
+      ];
+
+      const rawOptions = strategies.map(s => runStrategy(s, state.items));
+
+      // Filtrar duplicados exactos (si dos estrategias producen exactamente las mismas coordenadas)
+      const unique = [];
+      const signatures = new Set();
+      for (const opt of rawOptions) {
+        const sig = opt.placed
+          .map(p => `${p.item.id}:${Math.round(p.x / 5)}:${Math.round(p.z / 5)}:${p.rot}`)
+          .sort()
+          .join('|') + '||' + opt.denied.map(d => d.item.id).sort().join(',');
+
+        if (!signatures.has(sig)) {
+          signatures.add(sig);
+          unique.push(opt);
+        }
+      }
+
+      // Ordenar poniendo primero las que colocan más muebles y luego mayor puntuación
+      unique.sort((a, b) => {
+        if (b.placed.length !== a.placed.length) return b.placed.length - a.placed.length;
+        return b.score - a.score;
+      });
+
+      state.options = unique.slice(0, 4);
+      if (state.activeOptionIdx >= state.options.length) state.activeOptionIdx = 0;
+
+      if (!preserveSelectedId) {
+        state.selectedPlacementId = null;
+        closeFineTune(false);
+      }
+
+      renderOptionsBar();
+      renderSelectedItemsList();
+      updateStatusOverlays();
+      rebuild3DFurniture();
+      if (state.viewMode === '2d') renderPlan2D();
+    }
+
+    function getActiveOption() {
+      return state.options[state.activeOptionIdx] || {
+        title: 'Habitación vacía', placed: [], denied: [], score: 100, freeFloorM2: 7.9, minWardrobeDist: 227, notes: []
+      };
+    }
+
+    /*************************************************************************
+     * 6. MOTOR 3D (THREE.JS r128) — ARQUITECTURA + MUEBLES DIFERENCIADOS
+     *************************************************************************/
+    function createWoodFloorTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#e5cfa9';
+      ctx.fillRect(0, 0, 512, 512);
+      const shades = ['#e8d4b3', '#e0c79e', '#ebd8b8', '#ddc397'];
+      const pw = 64;
+      for (let i = 0; i < 8; i++) {
+        const x = i * pw;
+        ctx.fillStyle = shades[i % shades.length];
+        ctx.fillRect(x, 0, pw, 512);
+        ctx.strokeStyle = 'rgba(150, 112, 68, 0.14)';
+        ctx.lineWidth = 1;
+        for (let g = 0; g < 14; g++) {
+          ctx.beginPath();
+          const gx = x + (g / 14) * pw;
+          ctx.moveTo(gx, 0);
+          ctx.bezierCurveTo(gx + 3, 170, gx - 3, 340, gx + 1, 512);
+          ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(120, 88, 52, 0.22)';
+        ctx.fillRect(x, 0, 1.4, 512);
+        ctx.fillRect(x, ((i * 187) % 420) + 40, pw, 1.4);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(3.2, 3.6);
+      tex.encoding = THREE.sRGBEncoding;
+      return tex;
+    }
+
+    function createOakTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#dfc39c';
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.strokeStyle = 'rgba(145, 108, 65, 0.16)';
+      for (let i = 0; i < 36; i++) {
+        const y = (i / 36) * 256;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.bezierCurveTo(85, y + Math.sin(i) * 4, 170, y - Math.cos(i) * 4, 256, y);
+        ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.encoding = THREE.sRGBEncoding;
+      return tex;
+    }
+
+    function makeBoxBounds(x1, x2, y1, y2, z1, z2, mat, cast = true, receive = true) {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.max(0.1, x2 - x1), Math.max(0.1, y2 - y1), Math.max(0.1, z2 - z1)),
+        mat
+      );
+      mesh.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+      mesh.castShadow = cast;
+      mesh.receiveShadow = receive;
+      return mesh;
+    }
+
+    function init3D() {
+      const container = document.getElementById('viewport3D');
+      try {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf1f5f9);
+
+        const w = container.clientWidth || window.innerWidth;
+        const h = container.clientHeight || window.innerHeight;
+        camera = new THREE.PerspectiveCamera(44, w / h, 2, 3000);
+        camera.position.set(78, 255, 505);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(w, h);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.05;
+
+        container.insertBefore(renderer.domElement, container.firstChild);
+
+        raycaster = new THREE.Raycaster();
+        pointer = new THREE.Vector2();
+
+        // Click en 3D para seleccionar mueble (distinguir click de arrastre de órbita)
+        let downX = 0, downY = 0;
+        renderer.domElement.addEventListener('pointerdown', e => {
+          downX = e.clientX; downY = e.clientY;
+        });
+        renderer.domElement.addEventListener('pointerup', e => {
+          if (Math.hypot(e.clientX - downX, e.clientY - downY) < 6) {
+            handle3DClick(e);
+          }
+        });
+
+        if (typeof THREE.OrbitControls === 'function') {
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.075;
+          controls.maxPolarAngle = Math.PI / 2 - 0.02;
+          controls.minDistance = 85;
+          controls.maxDistance = 950;
+          controls.target.set(158, 82, 152);
+          controls.addEventListener('start', () => { state.cameraLerp.active = false; });
+          controls.update();
+        } else {
+          setupFallbackControls(renderer.domElement);
+        }
+
+        buildMaterials();
+        buildLights();
+        buildArchitecture();
+
+        dynamicFurnitureGroup = new THREE.Group();
+        dynamicZonesGroup = new THREE.Group();
+        scene.add(dynamicFurnitureGroup);
+        scene.add(dynamicZonesGroup);
+
+        isWebGLReady = true;
+      } catch (err) {
+        console.error('WebGL error:', err);
+        document.getElementById('webglFallback').classList.remove('hidden');
+      }
+    }
+
+    function setupFallbackControls(dom) {
+      const target = new THREE.Vector3(158, 82, 152);
+      let dragging = false, px = 0, py = 0;
+      const sph = new THREE.Spherical().setFromVector3(camera.position.clone().sub(target));
+      dom.addEventListener('mousedown', e => { dragging = true; px = e.clientX; py = e.clientY; state.cameraLerp.active = false; });
+      window.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        sph.theta -= (e.clientX - px) * 0.007;
+        sph.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.03, sph.phi - (e.clientY - py) * 0.007));
+        px = e.clientX; py = e.clientY;
+        camera.position.copy(target).add(new THREE.Vector3().setFromSpherical(sph));
+        camera.lookAt(target);
+      });
+      window.addEventListener('mouseup', () => { dragging = false; });
+      controls = { target, update: () => camera.lookAt(target) };
+    }
+
+    function buildMaterials() {
+      materials.floor = new THREE.MeshStandardMaterial({ map: createWoodFloorTexture(), roughness: 0.62, metalness: 0.04 });
+      materials.oak = new THREE.MeshStandardMaterial({ map: createOakTexture(), roughness: 0.56, metalness: 0.03 });
+      materials.wall = new THREE.MeshStandardMaterial({ color: WALL_PALETTES[state.wallColorKey].hex, roughness: 0.88 });
+      materials.wallBase = new THREE.MeshStandardMaterial({ color: 0xdbe2ea, roughness: 0.9 });
+      materials.skirting = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45 });
+      materials.whiteMatte = new THREE.MeshStandardMaterial({ color: 0xfbfbfa, roughness: 0.52 });
+      materials.wardrobeDoor = new THREE.MeshStandardMaterial({ color: 0xf8f8f6, roughness: 0.42, transparent: true, opacity: 1 });
+      materials.wardrobeCarcass = new THREE.MeshStandardMaterial({ color: 0xf6f5f2, roughness: 0.55, transparent: true, opacity: 1 });
+      materials.mattress = new THREE.MeshStandardMaterial({ color: 0xfaf7f2, roughness: 0.92 });
+      materials.metal = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.35, metalness: 0.65 });
+      materials.glass = new THREE.MeshPhysicalMaterial({ color: 0xdcf0ff, transparent: true, opacity: 0.35, roughness: 0.08 });
+      materials.column = new THREE.MeshStandardMaterial({ color: WALL_PALETTES[state.wallColorKey].hex, roughness: 0.85, transparent: true, opacity: 1 });
+      materials.canaleta = new THREE.MeshStandardMaterial({ color: WALL_PALETTES[state.wallColorKey].hex, roughness: 0.55, transparent: true, opacity: 1 });
+    }
+
+    function buildLights() {
+      const hemi = new THREE.HemisphereLight(0xfffdf8, 0xd9cbb8, 0.8);
+      hemi.position.set(146, 300, 164);
+      scene.add(hemi);
+
+      const sun = new THREE.DirectionalLight(0xfff5e4, 0.88);
+      sun.position.set(270, 290, -180);
+      sun.target.position.set(130, 0, 200);
+      sun.castShadow = true;
+      sun.shadow.mapSize.width = 2048;
+      sun.shadow.mapSize.height = 2048;
+      sun.shadow.camera.near = 40;
+      sun.shadow.camera.far = 900;
+      sun.shadow.camera.left = -280;
+      sun.shadow.camera.right = 280;
+      sun.shadow.camera.top = 280;
+      sun.shadow.camera.bottom = -280;
+      sun.shadow.bias = -0.0005;
+      scene.add(sun);
+      scene.add(sun.target);
+
+      const ceilingLight = new THREE.PointLight(0xfff7ec, 0.42, 650, 1.4);
+      ceilingLight.position.set(175, 232, 164);
+      scene.add(ceilingLight);
+    }
+
+    function buildArchitecture() {
+      const T = ROOM.WALL_T;
+
+      // Suelo + zócalo exterior
+      scene.add(makeBoxBounds(0, ROOM.W, -2, 0, 0, ROOM.L, materials.floor, false, true));
+      scene.add(makeBoxBounds(-T, ROOM.W + T, -8, -2, -T, ROOM.L + T, materials.wallBase, false, true));
+
+      // PARED SUPERIOR (Ventana Z = 0)
+      const topWall = new THREE.Group();
+      const win = ROOM.window;
+      topWall.add(makeBoxBounds(-T, win.x1, 0, ROOM.H, -T, 0, materials.wall));
+      topWall.add(makeBoxBounds(win.x2, ROOM.W + T, 0, ROOM.H, -T, 0, materials.wall));
+      topWall.add(makeBoxBounds(win.x1, win.x2, 0, win.y1, -T, 0, materials.wall));
+      topWall.add(makeBoxBounds(win.x1, win.x2, win.y2, ROOM.H, -T, 0, materials.wall));
+      topWall.add(makeBoxBounds(ROOM.wardrobe.x2, ROOM.W, 0, 9, 0, 1.4, materials.skirting, false, true));
+
+      // Ventana y alféizar exacto a 88 cm
+      topWall.add(makeBoxBounds(win.x1, win.x2, win.y1 - 1.5, win.y1 + 2, -T - 1, 2.5, materials.skirting));
+      topWall.add(makeBoxBounds(win.x1, win.x1 + 5, win.y1, win.y2, -T + 2, -1, materials.skirting));
+      topWall.add(makeBoxBounds(win.x2 - 5, win.x2, win.y1, win.y2, -T + 2, -1, materials.skirting));
+      topWall.add(makeBoxBounds(win.x1, win.x2, win.y2 - 5, win.y2, -T + 2, -1, materials.skirting));
+      topWall.add(makeBoxBounds((win.x1 + win.x2) / 2 - 2, (win.x1 + win.x2) / 2 + 2, win.y1, win.y2, -T + 3, -1.5, materials.skirting));
+      topWall.add(makeBoxBounds(win.x1 + 5, win.x2 - 5, win.y1 + 2, win.y2 - 5, -7, -5, materials.glass, false, false));
+      topWall.add(makeBoxBounds(win.x1 + 2, win.x2 - 2, win.y1 + 2, win.y2 - 2, -T - 0.8, -T - 0.2, new THREE.MeshBasicMaterial({ color: 0xfff9eb }), false, false));
+      scene.add(topWall);
+      archGroups.topWall = topWall;
+
+      // PARED INFERIOR (Puerta Z = 328)
+      const bottomWall = new THREE.Group();
+      const dr = ROOM.door;
+      bottomWall.add(makeBoxBounds(-T, dr.x1, 0, ROOM.H, ROOM.L, ROOM.L + T, materials.wall));
+      bottomWall.add(makeBoxBounds(dr.x2, ROOM.W + T, 0, ROOM.H, ROOM.L, ROOM.L + T, materials.wall));
+      bottomWall.add(makeBoxBounds(dr.x1, dr.x2, dr.h, ROOM.H, ROOM.L, ROOM.L + T, materials.wall));
+      bottomWall.add(makeBoxBounds(dr.x2 + 4, ROOM.W, 0, 9, ROOM.L - 1.4, ROOM.L, materials.skirting, false, true));
+      scene.add(bottomWall);
+      archGroups.bottomWall = bottomWall;
+
+      // Marco + hoja puerta de entrada animable (bisagra en X=15, Z=328, abre hacia dentro a izquierda)
+      const doorFrame = new THREE.Group();
+      doorFrame.add(makeBoxBounds(dr.x1 - 4, dr.x1 + 1, 0, dr.h + 4, ROOM.L - 2, ROOM.L + T + 1, materials.skirting));
+      doorFrame.add(makeBoxBounds(dr.x2 - 1, dr.x2 + 4, 0, dr.h + 4, ROOM.L - 2, ROOM.L + T + 1, materials.skirting));
+      doorFrame.add(makeBoxBounds(dr.x1 - 4, dr.x2 + 4, dr.h, dr.h + 5, ROOM.L - 2, ROOM.L + T + 1, materials.skirting));
+      scene.add(doorFrame);
+
+      const pivot = new THREE.Group();
+      pivot.position.set(dr.x1, 0, ROOM.L);
+      pivot.add(makeBoxBounds(0, dr.w, 0.5, dr.h, -4, 0, materials.whiteMatte));
+      pivot.add(makeBoxBounds(dr.w - 12, dr.w - 4, 98, 102, -7, 2.5, materials.metal, false, false));
+      scene.add(pivot);
+      animRefs.entryDoorPivot = pivot;
+
+      // PARED IZQUIERDA (X = 0)
+      const leftWall = new THREE.Group();
+      leftWall.add(makeBoxBounds(-T, 0, 0, ROOM.H, -T, ROOM.L + T, materials.wall));
+      leftWall.add(makeBoxBounds(0, 1.4, 0, 9, ROOM.wardrobe.z2, ROOM.L, materials.skirting, false, true));
+      scene.add(leftWall);
+      archGroups.leftWall = leftWall;
+
+      // PARED DERECHA (X = 293)
+      const rightWall = new THREE.Group();
+      rightWall.add(makeBoxBounds(ROOM.W, ROOM.W + T, 0, ROOM.H, -T, ROOM.L + T, materials.wall));
+      rightWall.add(makeBoxBounds(ROOM.W - 1.4, ROOM.W, 0, 9, 0, ROOM.L, materials.skirting, false, true));
+      scene.add(rightWall);
+      archGroups.rightWall = rightWall;
+
+      // ARMARIO EMPOTRADO (X:0..66, Z:0..237.5, Y:0..248)
+      const w = ROOM.wardrobe;
+      const wg = new THREE.Group();
+      wg.add(makeBoxBounds(0, w.x2, 0, w.y2, w.z2 - 3, w.z2, materials.wardrobeCarcass));
+      wg.add(makeBoxBounds(0, w.x2, 0, w.y2, 0, 3, materials.wardrobeCarcass));
+      wg.add(makeBoxBounds(0, w.x2, w.y2 - 4, w.y2, 0, w.z2, materials.wardrobeCarcass));
+      wg.add(makeBoxBounds(0, w.x2, 0, 8, 0, w.z2, materials.wardrobeCarcass));
+      wg.add(makeBoxBounds(3, w.x2 - 8, 8, w.y2 - 42, w.z2 / 2 - 1.5, w.z2 / 2 + 1.5, materials.oak));
+      wg.add(makeBoxBounds(3, w.x2 - 8, w.y2 - 44, w.y2 - 41, 3, w.z2 - 3, materials.oak));
+      [55, 102, 148].forEach(y => wg.add(makeBoxBounds(3, w.x2 - 10, y, y + 2.5, 3, w.z2 / 2 - 2, materials.oak, false, true)));
+      // Barra y ropa interior
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, w.z2 / 2 - 8, 12), materials.metal);
+      rod.rotation.x = Math.PI / 2;
+      rod.position.set(34, 174, w.z2 * 0.75);
+      wg.add(rod);
+      [0xf4b6c2, 0xfaf0d7, 0xb8d8be, 0xd8c2ef, 0xbfd7ed].forEach((c, i) => {
+        wg.add(makeBoxBounds(22, 46, 122 + (i % 2) * 8, 171, 134 + i * 18, 143 + i * 18,
+          new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }), true, false));
+      });
+      // Puertas correderas
+      const doorW = (w.z2 - 6) / 2 + 2;
+      const doorH = w.y2 - 12;
+      wg.add(makeBoxBounds(w.x2 - 5.5, w.x2 - 3.5, 6, 6 + doorH, 3, 3 + doorW, materials.wardrobeDoor));
+      const slideGrp = new THREE.Group();
+      slideGrp.add(makeBoxBounds(w.x2 - 3, w.x2 - 0.5, 6, 6 + doorH, w.z2 - 3 - doorW, w.z2 - 3, materials.wardrobeDoor));
+      slideGrp.add(makeBoxBounds(w.x2 - 0.6, w.x2 + 0.6, 90, 140, w.z2 - 16, w.z2 - 13, materials.oak, false, false));
+      wg.add(slideGrp);
+      animRefs.wardrobeSlidingDoor = slideGrp;
+      scene.add(wg);
+
+      // OBSTÁCULOS TÉCNICOS (Columnas + Canaleta AC)
+      const addObs = (x1, x2, y1, y2, z1, z2, mat, edgeHex) => {
+        const mesh = makeBoxBounds(x1, x2, y1, y2, z1, z2, mat);
+        scene.add(mesh);
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(mesh.geometry),
+          new THREE.LineBasicMaterial({ color: edgeHex, transparent: true, opacity: 0 })
+        );
+        edges.position.copy(mesh.position);
+        edges.scale.set(1.01, 1.002, 1.01);
+        scene.add(edges);
+        animRefs.obstacleEdges.push(edges);
+      };
+      addObs(ROOM.colTop.x1, ROOM.colTop.x2, 0, ROOM.H, ROOM.colTop.z1, ROOM.colTop.z2, materials.column, 0xea580c);
+      addObs(ROOM.colBottom.x1, ROOM.colBottom.x2, 0, ROOM.H, ROOM.colBottom.z1, ROOM.colBottom.z2, materials.column, 0xea580c);
+      addObs(ROOM.canaleta.x1, ROOM.canaleta.x2, ROOM.canaleta.y1, ROOM.canaleta.y2, ROOM.canaleta.z1, ROOM.canaleta.z2, materials.canaleta, 0xdc2626);
+
+      // Planos de ayuda visual cuando se activa "Obstáculos" (altura 88 cm ventana + radio puerta)
+      const helpGrp = new THREE.Group();
+      const winLimitPlane = makeBoxBounds(ROOM.windowZone.x1, ROOM.windowZone.x2, 87.5, 88.5, 0, ROOM.windowZone.z2,
+        new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.28, side: THREE.DoubleSide }), false, false);
+      const doorLimitPlane = makeBoxBounds(ROOM.doorSweep.x1, ROOM.doorSweep.x2, 0.7, 1.1, ROOM.doorSweep.z1, ROOM.doorSweep.z2,
+        new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.22 }), false, false);
+      helpGrp.add(winLimitPlane, doorLimitPlane);
+      helpGrp.visible = false;
+      scene.add(helpGrp);
+      animRefs.obstacleHelpersGroup = helpGrp;
+    }
+
+    /**
+     * Construye geometría 3D diferenciada por categoría para cualquier mueble de tamaño (w, d, h)
+     * Centrado en X/Z local, base en Y=0, respaldo en Z = -d/2, frente mirando a Z = +d/2
+     */
+    function buildFurnitureMesh3D(placement, isSelected, isInvalid) {
+      const { item } = placement;
+      const w = item.w, d = item.d, h = item.h;
+      const g = new THREE.Group();
+
+      const mainMat = new THREE.MeshStandardMaterial({
+        color: isInvalid ? 0xfca5a5 : new THREE.Color(item.color || '#f8f8f6'),
+        roughness: 0.58,
+        emissive: isInvalid ? 0xef4444 : (isSelected ? 0x4f46e5 : 0x000000),
+        emissiveIntensity: isInvalid ? 0.25 : (isSelected ? 0.14 : 0)
+      });
+      const accentMat = materials.oak;
+      const whiteMat = materials.whiteMatte;
+
+      const addPart = (x1, x2, y1, y2, z1, z2, mat) => {
+        const m = makeBoxBounds(x1, x2, y1, y2, z1, z2, mat, true, true);
+        m.userData.placementId = item.id;
+        selectableMeshes.push(m);
+        g.add(m);
+      };
+
+      const hw = w / 2, hd = d / 2;
+
+      if (item.cat === 'Cama') {
+        const baseH = Math.min(h * 0.52, 42);
+        const matTop = Math.min(h - 6, baseH + 16);
+        // Estructura base + cabecero + piecero + panel trasero
+        addPart(-hw, hw, 0, baseH, -hd, hd, whiteMat);
+        addPart(-hw, -hw + 4, 0, h, -hd, hd, whiteMat); // cabecero
+        addPart(hw - 4, hw, 0, Math.min(h, baseH + 22), -hd, hd, whiteMat); // piecero
+        addPart(-hw, hw, 0, Math.min(h, baseH + 26), -hd, -hd + 3.5, whiteMat); // panel respaldo
+        // Colchón
+        addPart(-hw + 4, hw - 4, baseH, matTop, -hd + 3.5, hd - 2, materials.mattress);
+        // Nórdico pastel del color del mueble
+        addPart(-hw + 32, hw - 3, baseH + 3, matTop + 2.5, -hd + 2.5, hd - 1, mainMat);
+        // Almohada
+        addPart(-hw + 7, -hw + 34, matTop, matTop + 9, -hd + 10, hd - 10, whiteMat);
+        // 3 cajones en el frente (Z = +hd)
+        const cW = (w - 14) / 3;
+        for (let i = 0; i < 3; i++) {
+          const cx1 = -hw + 5 + i * (cW + 2);
+          addPart(cx1, cx1 + cW, 5, baseH - 4, hd - 0.5, hd + 1, mainMat);
+          addPart(cx1 + cW * 0.35, cx1 + cW * 0.65, baseH * 0.55, baseH * 0.55 + 2.5, hd + 0.8, hd + 2, accentMat);
+        }
+      } else if (item.cat === 'Escritorio') {
+        const topT = 3.5;
+        // Tablero
+        addPart(-hw, hw, h - topT, h, -hd, hd, mainMat);
+        // Cajonera lateral derecha
+        const boxW = Math.min(36, w * 0.34);
+        addPart(hw - boxW, hw - 1, 0, h - topT, -hd + 2, hd - 2, whiteMat);
+        [0.25, 0.52, 0.78].forEach(f => {
+          addPart(hw - boxW * 0.68, hw - boxW * 0.32, (h - topT) * f, (h - topT) * f + 2, hd - 2, hd - 0.6, accentMat);
+        });
+        // Patas lado izquierdo
+        addPart(-hw + 2, -hw + 6, 0, h - topT, -hd + 2, -hd + 6, accentMat);
+        addPart(-hw + 2, -hw + 6, 0, h - topT, hd - 6, hd - 2, accentMat);
+        // Silla juvenil frente al escritorio (en +Z)
+        const chMat = new THREE.MeshStandardMaterial({ color: 0xf4cdd6, roughness: 0.75 });
+        const chX = -boxW / 2;
+        const chZ = hd + 14;
+        addPart(chX - 18, chX + 18, 42, 46, chZ - 16, chZ + 16, chMat);
+        addPart(chX - 17, chX + 17, 46, 77, chZ + 12, chZ + 16, chMat);
+        [[-14, -12], [14, -12], [-14, 12], [14, 12]].forEach(([lx, lz]) => {
+          addPart(chX + lx - 1.5, chX + lx + 1.5, 0, 42, chZ + lz - 1.5, chZ + lz + 1.5, accentMat);
+        });
+      } else if (item.cat === 'Estantería') {
+        const t = 2.5;
+        // Laterales, tapa, base y trasera
+        addPart(-hw, -hw + t, 0, h, -hd, hd, mainMat);
+        addPart(hw - t, hw, 0, h, -hd, hd, mainMat);
+        addPart(-hw, hw, 0, t + 2, -hd, hd, mainMat);
+        addPart(-hw, hw, h - t, h, -hd, hd, mainMat);
+        addPart(-hw, hw, 0, h, -hd, -hd + 1.8, mainMat);
+        // Baldas proporcionales a la altura
+        const shelves = Math.max(1, Math.min(6, Math.round(h / 34) - 1));
+        const bookCols = [0x93c5fd, 0xfda4af, 0x86efac, 0xfcd34d, 0xc4b5fd];
+        for (let i = 1; i <= shelves; i++) {
+          const sy = (h / (shelves + 1)) * i;
+          addPart(-hw + t, hw - t, sy, sy + 2, -hd + 2, hd - 1, mainMat);
+          // Pequeños libros decorativos
+          const count = Math.min(5, Math.floor((w - 12) / 14));
+          for (let b = 0; b < count; b++) {
+            const bx = -hw + 6 + b * 11;
+            addPart(bx, bx + 7, sy + 2, sy + 18 + (b % 3) * 3, -hd + 5, hd - 6,
+              new THREE.MeshStandardMaterial({ color: bookCols[(i + b) % bookCols.length], roughness: 0.7 }));
+          }
+        }
+      } else if (item.cat === 'Mesita') {
+        addPart(-hw, hw, 0, h - 2.5, -hd, hd, mainMat);
+        addPart(-hw - 0.5, hw + 0.5, h - 2.5, h, -hd - 0.5, hd + 0.5, accentMat);
+        addPart(-hw + 4, hw - 4, h * 0.45, h * 0.48, hd - 0.5, hd + 1, accentMat);
+        addPart(-hw + 6, hw - 6, h * 0.22, h * 0.26, hd, hd + 1.4, accentMat);
+      } else {
+        // Almacenaje / Cómoda / Trofast
+        addPart(-hw, hw, 0, h - 2.5, -hd, hd, mainMat);
+        addPart(-hw - 0.4, hw + 0.4, h - 2.5, h, -hd - 0.4, hd + 0.4, accentMat);
+        const rows = Math.max(2, Math.min(4, Math.round(h / 24)));
+        const cols = w >= 85 ? 2 : 1;
+        const cellW = (w - 8 - (cols - 1) * 3) / cols;
+        const cellH = (h - 10) / rows;
+        const binMats = [
+          new THREE.MeshStandardMaterial({ color: 0xf9c6d1, roughness: 0.65 }),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55 }),
+          new THREE.MeshStandardMaterial({ color: 0xc7dec9, roughness: 0.65 })
+        ];
+        let k = 0;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const bx = -hw + 4 + c * (cellW + 3);
+            const by = 4 + r * cellH;
+            addPart(bx, bx + cellW, by + 1, by + cellH - 2, hd - 0.6, hd + 0.8, binMats[k++ % binMats.length]);
+            addPart(bx + cellW * 0.35, bx + cellW * 0.65, by + cellH * 0.5, by + cellH * 0.5 + 2, hd + 0.7, hd + 1.6, accentMat);
+          }
+        }
+      }
+
+      // Contorno de selección o alerta en 3D
+      if (isSelected || isInvalid) {
+        const boxGeo = new THREE.BoxGeometry(w + 2, h + 2, d + 2);
+        const wire = new THREE.LineSegments(
+          new THREE.EdgesGeometry(boxGeo),
+          new THREE.LineBasicMaterial({ color: isInvalid ? 0xdc2626 : 0x4f46e5 })
+        );
+        wire.position.set(0, h / 2, 0);
+        g.add(wire);
+      }
+
+      // Posicionar grupo en el centro de su huella real y rotar según rot
+      const { body } = getPlacementRects(item, placement.x, placement.z, placement.rot);
+      g.position.set((body.x1 + body.x2) / 2, 0, (body.z1 + body.z2) / 2);
+      g.rotation.y = -(placement.rot * Math.PI) / 180;
+
+      return g;
+    }
+
+    /**
+     * Reconstruye los muebles 3D y planos translúcidos de apertura/paso de la opción activa
+     */
+    function rebuild3DFurniture() {
+      if (!isWebGLReady || !dynamicFurnitureGroup) return;
+
+      while (dynamicFurnitureGroup.children.length > 0) dynamicFurnitureGroup.remove(dynamicFurnitureGroup.children[0]);
+      while (dynamicZonesGroup.children.length > 0) dynamicZonesGroup.remove(dynamicZonesGroup.children[0]);
+      selectableMeshes = [];
+
+      const opt = getActiveOption();
+
+      // Zonas fijas de paso (armario 55 cm + barrido puerta)
+      const corridorPlane = makeBoxBounds(ROOM.wardrobeCorridor.x1, ROOM.wardrobeCorridor.x2, 0.3, 0.5, ROOM.wardrobeCorridor.z1, ROOM.wardrobeCorridor.z2,
+        new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.16 }), false, false);
+      const doorPlane = makeBoxBounds(ROOM.doorSweep.x1, ROOM.doorSweep.x2, 0.3, 0.5, ROOM.doorSweep.z1, ROOM.doorSweep.z2,
+        new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.16 }), false, false);
+      dynamicZonesGroup.add(corridorPlane, doorPlane);
+
+      // Muebles colocados + sus zonas frontales
+      opt.placed.forEach(p => {
+        const others = opt.placed.filter(o => o.item.id !== p.item.id);
+        const val = validatePlacement(p.item, p.x, p.z, p.rot, others);
+        const isSel = state.selectedPlacementId === p.item.id;
+        const meshGroup = buildFurnitureMesh3D(p, isSel, !val.valid);
+        dynamicFurnitureGroup.add(meshGroup);
+
+        if (val.frontRect) {
+          const fr = val.frontRect;
+          const zoneColor = val.valid ? 0xf59e0b : 0xef4444;
+          const zPlane = makeBoxBounds(fr.x1, fr.x2, 0.45, 0.65, fr.z1, fr.z2,
+            new THREE.MeshBasicMaterial({ color: zoneColor, transparent: true, opacity: 0.22 }), false, false);
+          dynamicZonesGroup.add(zPlane);
+        }
+      });
+
+      dynamicZonesGroup.visible = state.visuals.zones;
+    }
+
+    function handle3DClick(event) {
+      if (!isWebGLReady || state.viewMode !== '3d') return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(selectableMeshes, false);
+      if (hits.length > 0 && hits[0].object.userData.placementId) {
+        selectPlacementForFineTune(hits[0].object.userData.placementId);
+      }
+    }
+
+    function updateAutoWallCutaway() {
+      if (!camera || !archGroups.topWall) return;
+      const cx = camera.position.x, cz = camera.position.z;
+      archGroups.topWall.visible = cz > -4;
+      archGroups.bottomWall.visible = cz < ROOM.L + 4;
+      archGroups.leftWall.visible = cx > -4;
+      archGroups.rightWall.visible = cx < ROOM.W + 4;
+
+      const behindW = cx < -10;
+      if (materials.wardrobeCarcass) {
+        materials.wardrobeCarcass.opacity = behindW ? 0.22 : 1;
+        materials.wardrobeDoor.opacity = behindW ? 0.25 : 1;
+      }
+    }
+
+    function apply3DAnimations() {
+      if (animRefs.entryDoorPivot) {
+        animRefs.entryDoorPivot.rotation.y = state.anim.doors * (86 * Math.PI / 180);
+      }
+      if (animRefs.wardrobeSlidingDoor) {
+        animRefs.wardrobeSlidingDoor.position.z = -state.anim.doors * 110;
+      }
+
+      const ob = state.anim.obstacles;
+      const baseCol = new THREE.Color(WALL_PALETTES[state.wallColorKey].hex);
+      if (materials.canaleta) {
+        materials.canaleta.color.copy(baseCol).lerp(new THREE.Color(0xef4444), ob);
+        materials.canaleta.emissive.setHex(0xdc2626);
+        materials.canaleta.emissiveIntensity = ob * 0.5;
+      }
+      if (materials.column) {
+        materials.column.color.copy(baseCol).lerp(new THREE.Color(0xf97316), ob * 0.85);
+        materials.column.emissive.setHex(0xd97706);
+        materials.column.emissiveIntensity = ob * 0.3;
+      }
+      animRefs.obstacleEdges.forEach(e => { e.material.opacity = ob; });
+      if (animRefs.obstacleHelpersGroup) {
+        animRefs.obstacleHelpersGroup.visible = ob > 0.1;
+      }
+    }
+
+    function updateProjected3DLabels() {
+      const container = document.getElementById('overlay3DLabels');
+      if (!container || state.viewMode !== '3d' || !isWebGLReady) {
+        if (container) container.innerHTML = '';
+        labelDOMPool = [];
+        return;
+      }
+
+      const labels = [];
+      const opt = getActiveOption();
+
+      if (state.visuals.labels) {
+        opt.placed.forEach(p => {
+          const { body } = getPlacementRects(p.item, p.x, p.z, p.rot);
+          const others = opt.placed.filter(o => o.item.id !== p.item.id);
+          const valid = validatePlacement(p.item, p.x, p.z, p.rot, others).valid;
+          const isSel = state.selectedPlacementId === p.item.id;
+          const cls = !valid
+            ? 'bg-red-600/95 text-white border-red-200'
+            : (isSel ? 'bg-indigo-600/95 text-white border-indigo-200' : 'bg-white/92 text-slate-800 border-slate-300');
+          labels.push({
+            pos: new THREE.Vector3((body.x1 + body.x2) / 2, p.item.h + 12, (body.z1 + body.z2) / 2),
+            html: `<div class="px-2 py-0.5 rounded-lg text-[10px] font-bold shadow border ${cls} whitespace-nowrap">${p.item.name} · ${p.item.w}×${p.item.d}×${p.item.h}</div>`
+          });
+        });
+      }
+
+      if (state.anim.obstacles > 0.15) {
+        labels.push({
+          pos: new THREE.Vector3(286, 214, 73),
+          html: `<div class="px-2 py-0.5 rounded-lg text-[10px] font-bold shadow-lg bg-red-600 text-white border border-red-200 whitespace-nowrap">Canaleta AC: 146,5 cm (Y=207,5–215)</div>`
+        });
+        labels.push({
+          pos: new THREE.Vector3(229, 92, 24),
+          html: `<div class="px-2 py-0.5 rounded-lg text-[10px] font-bold shadow-lg bg-orange-600 text-white border border-orange-200 whitespace-nowrap">Límite Ventana: Máx. 88 cm alto</div>`
+        });
+        labels.push({
+          pos: new THREE.Vector3(147, 170, 12),
+          html: `<div class="px-2 py-0.5 rounded-lg text-[10px] font-bold shadow bg-orange-500 text-white whitespace-nowrap">Col. 36×13</div>`
+        });
+        labels.push({
+          pos: new THREE.Vector3(148, 130, 305),
+          html: `<div class="px-2 py-0.5 rounded-lg text-[10px] font-bold shadow bg-orange-500 text-white whitespace-nowrap">Col. 36,5×30</div>`
+        });
+      }
+
+      if (labelDOMPool.length !== labels.length) {
+        container.innerHTML = '';
+        labelDOMPool = labels.map(item => {
+          const el = document.createElement('div');
+          el.className = 'callout-3d';
+          el.innerHTML = item.html;
+          container.appendChild(el);
+          return el;
+        });
+      }
+
+      const vpW = container.clientWidth, vpH = container.clientHeight;
+      labels.forEach((item, i) => {
+        const el = labelDOMPool[i];
+        if (el.innerHTML !== item.html) el.innerHTML = item.html;
+        const v = item.pos.clone().project(camera);
+        if (v.z > 1) {
+          el.style.opacity = '0';
+        } else {
+          el.style.left = `${(v.x * 0.5 + 0.5) * vpW}px`;
+          el.style.top = `${(-v.y * 0.5 + 0.5) * vpH}px`;
+          el.style.opacity = '1';
+        }
+      });
+    }
+
+    function animateLoop() {
+      requestAnimationFrame(animateLoop);
+      const dt = Math.min(clock.getDelta(), 0.08);
+      const speed = Math.min(1, dt * 7);
+
+      let changed = false;
+      ['doors', 'obstacles'].forEach(k => {
+        const target = state.visuals[k] ? 1 : 0;
+        const diff = target - state.anim[k];
+        if (Math.abs(diff) > 0.002) {
+          state.anim[k] += diff * speed;
+          changed = true;
+        } else if (state.anim[k] !== target) {
+          state.anim[k] = target;
+          changed = true;
+        }
+      });
+
+      if (state.viewMode === '3d' && isWebGLReady) {
+        if (state.cameraLerp.active && controls) {
+          camera.position.lerp(state.cameraLerp.targetPos, Math.min(1, dt * 5.5));
+          controls.target.lerp(state.cameraLerp.targetLook, Math.min(1, dt * 5.5));
+          if (camera.position.distanceTo(state.cameraLerp.targetPos) < 1.2) state.cameraLerp.active = false;
+        }
+        if (controls) controls.update();
+        apply3DAnimations();
+        updateAutoWallCutaway();
+        renderer.render(scene, camera);
+        updateProjected3DLabels();
+      } else if (state.viewMode === '2d' && changed) {
+        renderPlan2D();
+      }
+    }
+
+    /*************************************************************************
+     * 7. PLANO 2D ACOTADO INTERACTIVO (HTML5 CANVAS HiDPI)
+     *************************************************************************/
+    let plan2DTransform = { originX: 0, originY: 0, scale: 1 };
+
+    function renderPlan2D() {
+      const canvas = document.getElementById('canvas2D');
+      const container = document.getElementById('viewport2D');
+      if (!canvas || !container || state.viewMode !== '2d') return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const cw = container.clientWidth, ch = container.clientHeight;
+      if (cw <= 0 || ch <= 0) return;
+
+      canvas.width = Math.round(cw * dpr);
+      canvas.height = Math.round(ch * dpr);
+
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, cw, ch);
+
+      const padL = Math.max(58, cw * 0.08);
+      const padR = Math.max(72, cw * 0.09);
+      const padT = Math.max(78, ch * 0.12);
+      const padB = Math.max(70, ch * 0.11);
+
+      const scale = Math.min((cw - padL - padR) / ROOM.W, (ch - padT - padB) / ROOM.L);
+      const originX = (cw - ROOM.W * scale) / 2;
+      const originY = (ch - ROOM.L * scale) / 2 + 8;
+      plan2DTransform = { originX, originY, scale };
+
+      const px = x => originX + x * scale;
+      const py = z => originY + z * scale;
+      const ps = v => v * scale;
+
+      // Fondo suelo y cuadrícula cada 25 cm
+      ctx.fillStyle = '#faf8f5';
+      ctx.fillRect(px(0), py(0), ps(ROOM.W), ps(ROOM.L));
+      ctx.strokeStyle = '#efeae2';
+      ctx.lineWidth = 1;
+      for (let gx = 25; gx < ROOM.W; gx += 25) {
+        ctx.beginPath(); ctx.moveTo(px(gx), py(0)); ctx.lineTo(px(gx), py(ROOM.L)); ctx.stroke();
+      }
+      for (let gz = 25; gz < ROOM.L; gz += 25) {
+        ctx.beginPath(); ctx.moveTo(px(0), py(gz)); ctx.lineTo(px(ROOM.W), py(gz)); ctx.stroke();
+      }
+
+      // Zonas de paso y obstáculos en suelo
+      if (state.visuals.zones) {
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.09)';
+        ctx.fillRect(px(66), py(0), ps(55), ps(237.5));
+        ctx.fillStyle = '#0284c7';
+        ctx.font = '600 9.5px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Paso armario 55 cm', px(93.5), py(118));
+      }
+
+      if (state.visuals.obstacles) {
+        ctx.fillStyle = 'rgba(249, 115, 22, 0.14)';
+        ctx.strokeStyle = '#ea580c';
+        ctx.setLineDash([4, 3]);
+        ctx.fillRect(px(170), py(0), ps(118), ps(55));
+        ctx.strokeRect(px(170), py(0), ps(118), ps(55));
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#c2410c';
+        ctx.font = '700 9.5px Inter, sans-serif';
+        ctx.fillText('Máx. 88 cm alto (ventana)', px(229), py(26));
+      }
+
+      // Armario empotrado
+      ctx.fillStyle = '#f1f5f9'; ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.6;
+      ctx.fillRect(px(0), py(0), ps(66), ps(237.5));
+      ctx.strokeRect(px(0), py(0), ps(66), ps(237.5));
+      ctx.save();
+      ctx.translate(px(33), py(118.75));
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = '#334155';
+      ctx.font = '700 10.5px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ARMARIO EMPOTRADO (237,5 × 66)', 0, 3);
+      ctx.restore();
+
+      // Puertas correderas del armario
+      const slideOff = state.anim.doors * 110;
+      ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(px(63.5), py(4)); ctx.lineTo(px(63.5), py(120)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px(65.5), py(118 - slideOff)); ctx.lineTo(px(65.5), py(234 - slideOff)); ctx.stroke();
+
+      // Muebles colocados de la opción activa
+      const opt = getActiveOption();
+      opt.placed.forEach(p => {
+        const others = opt.placed.filter(o => o.item.id !== p.item.id);
+        const val = validatePlacement(p.item, p.x, p.z, p.rot, others);
+        const b = val.body;
+        const isSel = state.selectedPlacementId === p.item.id;
+
+        // Zona frontal rayada
+        if (state.visuals.zones && val.frontRect) {
+          const fr = val.frontRect;
+          ctx.save();
+          ctx.fillStyle = val.valid ? 'rgba(245, 158, 11, 0.14)' : 'rgba(239, 68, 68, 0.22)';
+          ctx.strokeStyle = val.valid ? '#d97706' : '#dc2626';
+          ctx.lineWidth = 1.1;
+          ctx.setLineDash([4, 3]);
+          ctx.fillRect(px(fr.x1), py(fr.z1), ps(fr.x2 - fr.x1), ps(fr.z2 - fr.z1));
+          ctx.strokeRect(px(fr.x1), py(fr.z1), ps(fr.x2 - fr.x1), ps(fr.z2 - fr.z1));
+          ctx.restore();
+        }
+
+        // Cuerpo del mueble
+        ctx.save();
+        ctx.fillStyle = !val.valid ? '#fee2e2' : (p.item.color || '#f1f5f9');
+        ctx.strokeStyle = !val.valid ? '#dc2626' : (isSel ? '#4f46e5' : '#334155');
+        ctx.lineWidth = isSel || !val.valid ? 2.6 : 1.5;
+        ctx.fillRect(px(b.x1), py(b.z1), ps(b.dx), ps(b.dz));
+        ctx.strokeRect(px(b.x1), py(b.z1), ps(b.dx), ps(b.dz));
+
+        // Pequeña flecha indicando hacia dónde abre el frente
+        const cx = px((b.x1 + b.x2) / 2);
+        const cz = py((b.z1 + b.z2) / 2);
+        ctx.fillStyle = !val.valid ? '#b91c1c' : '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const fs = Math.max(8.5, Math.min(11, scale * 7.2));
+        ctx.font = `700 ${fs}px Inter, sans-serif`;
+
+        const boxW = ps(b.dx), boxH = ps(b.dz);
+        if (boxW < 48 && boxH > 58) {
+          ctx.translate(cx, cz);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(p.item.name.slice(0, 22), 0, -6);
+          ctx.font = `500 ${fs - 1.2}px Inter, sans-serif`;
+          ctx.fillStyle = !val.valid ? '#dc2626' : '#475569';
+          ctx.fillText(`${p.item.w}×${p.item.d} · h${p.item.h}`, 0, 7);
+        } else {
+          ctx.fillText(p.item.name.slice(0, 22), cx, cz - 6);
+          ctx.font = `500 ${fs - 1.2}px Inter, sans-serif`;
+          ctx.fillStyle = !val.valid ? '#dc2626' : '#475569';
+          ctx.fillText(`${p.item.w}×${p.item.d} · h${p.item.h}`, cx, cz + 7);
+        }
+        ctx.restore();
+      });
+
+      // Paredes perimetrales
+      const wt = 8;
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(px(0) - wt, py(0) - wt, wt, ps(ROOM.L) + wt * 2);
+      ctx.fillRect(px(ROOM.W), py(0) - wt, wt, ps(ROOM.L) + wt * 2);
+      ctx.fillRect(px(0) - wt, py(0) - wt, ps(ROOM.window.x1) + wt, wt);
+      ctx.fillRect(px(ROOM.window.x2), py(0) - wt, ps(ROOM.W - ROOM.window.x2) + wt, wt);
+      // Ventana
+      ctx.fillStyle = '#bae6fd'; ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 1.5;
+      ctx.fillRect(px(ROOM.window.x1), py(0) - wt, ps(ROOM.window.w), wt);
+      ctx.strokeRect(px(ROOM.window.x1), py(0) - wt, ps(ROOM.window.w), wt);
+      // Pared inferior con hueco puerta
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(px(0) - wt, py(ROOM.L), ps(ROOM.door.x1) + wt, wt);
+      ctx.fillRect(px(ROOM.door.x2), py(ROOM.L), ps(ROOM.W - ROOM.door.x2) + wt, wt);
+
+      // Puerta entrada + arco
+      const ang = state.anim.doors * (86 * Math.PI / 180);
+      ctx.save();
+      ctx.strokeStyle = '#10b981'; ctx.lineWidth = 1.4; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.arc(px(15), py(ROOM.L), ps(72), -Math.PI / 2, 0); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(px(15), py(ROOM.L));
+      ctx.lineTo(px(15 + Math.cos(ang) * 72), py(ROOM.L - Math.sin(ang) * 72));
+      ctx.stroke();
+      ctx.restore();
+
+      // Columnas y canaleta AC
+      const isObs = state.visuals.obstacles;
+      ctx.fillStyle = isObs ? '#f97316' : '#64748b';
+      ctx.strokeStyle = isObs ? '#c2410c' : '#1e293b'; ctx.lineWidth = 1.5;
+      ctx.fillRect(px(129), py(0), ps(36), ps(13));
+      ctx.strokeRect(px(129), py(0), ps(36), ps(13));
+      ctx.fillRect(px(130), py(298), ps(36.5), ps(30));
+      ctx.strokeRect(px(130), py(298), ps(36.5), ps(30));
+
+      // Canaleta AC (pared derecha Z: 0..146.5, X: 288.5..293)
+      ctx.fillStyle = isObs ? 'rgba(220, 38, 38, 0.92)' : 'rgba(249, 115, 22, 0.55)';
+      ctx.fillRect(px(288.5), py(0), ps(4.5), ps(146.5));
+      ctx.save();
+      ctx.fillStyle = isObs ? '#b91c1c' : '#c2410c';
+      ctx.font = '700 9.5px Inter, sans-serif';
+      ctx.translate(px(ROOM.W) + 22, py(73));
+      ctx.rotate(Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText('Canaleta AC 146,5 cm (h máx 207,5)', 0, 0);
+      ctx.restore();
+
+      // Cotas arquitectónicas exteriores completas
+      drawDimH(ctx, px(0), py(0) - 44, px(ROOM.W), py(0) - 44, '293 cm (Ancho total)', '#0f172a', -7);
+      drawDimH(ctx, px(0), py(0) - 22, px(66), py(0) - 22, '66', '#64748b', -5);
+      drawDimH(ctx, px(66), py(0) - 22, px(129), py(0) - 22, '63', '#64748b', -5);
+      drawDimH(ctx, px(129), py(0) - 22, px(165), py(0) - 22, '36×13', isObs ? '#ea580c' : '#64748b', -5);
+      drawDimH(ctx, px(165), py(0) - 22, px(293), py(0) - 22, '128 (Vent. 106 · Alféizar 88)', '#0284c7', -5);
+
+      drawDimH(ctx, px(0), py(ROOM.L) + 24, px(130), py(ROOM.L) + 24, '130 (Puerta 72 a 15 izda)', '#475569', 13);
+      drawDimH(ctx, px(130), py(ROOM.L) + 24, px(166.5), py(ROOM.L) + 24, '36,5×30', isObs ? '#ea580c' : '#64748b', 13);
+      drawDimH(ctx, px(166.5), py(ROOM.L) + 24, px(293), py(ROOM.L) + 24, '126,5', '#475569', 13);
+      drawDimH(ctx, px(0), py(ROOM.L) + 46, px(ROOM.W), py(ROOM.L) + 46, '293 cm · Techo: 248 cm', '#0f172a', 13);
+
+      drawDimV(ctx, px(0) - 24, py(0), py(237.5), '237,5', '#475569', -9);
+      drawDimV(ctx, px(0) - 24, py(237.5), py(ROOM.L), '90,5', '#059669', -9);
+      drawDimV(ctx, px(0) - 44, py(0), py(ROOM.L), '328 cm', '#0f172a', -9);
+    }
+
+    function drawDimH(ctx, x1, y1, x2, y2, text, color, offsetY) {
+      ctx.save();
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+      ctx.moveTo(x1, y1 - 4); ctx.lineTo(x1, y1 + 4);
+      ctx.moveTo(x2, y2 - 4); ctx.lineTo(x2, y2 + 4);
+      ctx.stroke();
+      ctx.font = '600 9.5px Inter, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, (x1 + x2) / 2, y1 + offsetY);
+      ctx.restore();
+    }
+
+    function drawDimV(ctx, x, y1, y2, text, color, offsetX) {
+      ctx.save();
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(x, y1); ctx.lineTo(x, y2);
+      ctx.moveTo(x - 4, y1); ctx.lineTo(x + 4, y1);
+      ctx.moveTo(x - 4, y2); ctx.lineTo(x + 4, y2);
+      ctx.stroke();
+      ctx.translate(x + offsetX, (y1 + y2) / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.font = '600 9.5px Inter, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+
+    function init2DClickSelection() {
+      const canvas = document.getElementById('canvas2D');
+      canvas.addEventListener('click', e => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const rx = (mx - plan2DTransform.originX) / plan2DTransform.scale;
+        const rz = (my - plan2DTransform.originY) / plan2DTransform.scale;
+
+        const opt = getActiveOption();
+        for (let i = opt.placed.length - 1; i >= 0; i--) {
+          const p = opt.placed[i];
+          const b = getPlacementRects(p.item, p.x, p.z, p.rot).body;
+          if (rx >= b.x1 && rx <= b.x2 && rz >= b.z1 && rz <= b.z2) {
+            selectPlacementForFineTune(p.item.id);
+            return;
+          }
+        }
+        closeFineTune();
+      });
+    }
+
+    /*************************************************************************
+     * 8. GESTIÓN DE MUEBLES, AJUSTE MANUAL (FINE-TUNING) Y PERSISTENCIA
+     *************************************************************************/
+    function saveItems() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
+      } catch (e) { /* sin localStorage disponible */ }
+    }
+
+    function loadItems() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(DEFAULT_ITEMS));
+    }
+
+    function addFurnitureItem(data) {
+      const item = {
+        id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        name: data.name,
+        cat: data.cat,
+        w: Number(data.w),
+        d: Number(data.d),
+        h: Number(data.h),
+        front: Number(data.front || 0),
+        color: data.color || CATEGORY_DEFAULTS[data.cat]?.color || '#f8f8f6'
+      };
+      state.items.push(item);
+      saveItems();
+      recomputeCurrentLayouts();
+      showToast(`Añadido: ${item.name} (${item.w}×${item.d}×${item.h} cm)`);
+    }
+
+    function deleteFurnitureItem(id) {
+      state.items = state.items.filter(i => i.id !== id);
+      if (state.selectedPlacementId === id) closeFineTune();
+      if (state.editingItemId === id) cancelEditItem();
+      saveItems();
+      recomputeCurrentLayouts();
+      showToast('Mueble eliminado y opciones recalculadas');
+    }
+
+    function editFurnitureItem(id) {
+      const item = state.items.find(i => i.id === id);
+      if (!item) return;
+      state.editingItemId = id;
+      setInputTab('manual');
+      document.getElementById('manualFormTitle').textContent = `Editando: ${item.name}`;
+      document.getElementById('btnCancelEdit').classList.remove('hidden');
+      document.getElementById('btnManualSubmit').textContent = 'Guardar Cambios y Recalcular';
+      document.getElementById('mName').value = item.name;
+      document.getElementById('mCat').value = item.cat;
+      document.getElementById('mW').value = item.w;
+      document.getElementById('mD').value = item.d;
+      document.getElementById('mH').value = item.h;
+      document.getElementById('mFront').value = item.front;
+      document.getElementById('mColor').value = item.color || '#f8f8f6';
+    }
+
+    function cancelEditItem() {
+      state.editingItemId = null;
+      document.getElementById('manualFormTitle').textContent = 'Nuevo mueble a medida';
+      document.getElementById('btnCancelEdit').classList.add('hidden');
+      document.getElementById('btnManualSubmit').textContent = '+ Añadir Mueble y Recalcular Opciones';
+      document.getElementById('mName').value = '';
+    }
+
+    function submitManualItem() {
+      const name = document.getElementById('mName').value.trim();
+      const cat = document.getElementById('mCat').value;
+      const w = Math.round(parseFloat(document.getElementById('mW').value));
+      const d = Math.round(parseFloat(document.getElementById('mD').value));
+      const h = Math.round(parseFloat(document.getElementById('mH').value));
+      const front = Math.max(0, Math.round(parseFloat(document.getElementById('mFront').value) || 0));
+      const color = document.getElementById('mColor').value;
+
+      if (!name || !(w > 0) || !(d > 0) || !(h > 0)) {
+        showToast('Completa nombre y dimensiones válidas en cm', true);
+        return;
+      }
+
+      if (state.editingItemId) {
+        const idx = state.items.findIndex(i => i.id === state.editingItemId);
+        if (idx !== -1) {
+          state.items[idx] = { ...state.items[idx], name, cat, w, d, h, front, color };
+        }
+        cancelEditItem();
+        saveItems();
+        recomputeCurrentLayouts();
+        showToast('Mueble actualizado');
+      } else {
+        addFurnitureItem({ name, cat, w, d, h, front, color });
+        document.getElementById('mName').value = '';
+      }
+    }
+
+    function resetDefaultFurniture() {
+      state.items = JSON.parse(JSON.stringify(DEFAULT_ITEMS));
+      cancelEditItem();
+      saveItems();
+      recomputeCurrentLayouts();
+      showToast('Ejemplo inicial restaurado (SLÄKT + MICKE + TROFAST)');
+    }
+
+    function clearAllFurniture() {
+      state.items = [];
+      cancelEditItem();
+      saveItems();
+      recomputeCurrentLayouts();
+      showToast('Lista de muebles vaciada');
+    }
+
+    // --- Ajuste Manual (Fine-Tuning) ---
+    function selectPlacementForFineTune(itemId) {
+      const opt = getActiveOption();
+      const p = opt.placed.find(x => x.item.id === itemId);
+      if (!p) return;
+      state.selectedPlacementId = itemId;
+      document.getElementById('fineTunePanel').classList.remove('hidden');
+      syncFineTuneUI();
+      rebuild3DFurniture();
+      if (state.viewMode === '2d') renderPlan2D();
+    }
+
+    function closeFineTune(redraw = true) {
+      state.selectedPlacementId = null;
+      document.getElementById('fineTunePanel').classList.add('hidden');
+      if (redraw) {
+        rebuild3DFurniture();
+        if (state.viewMode === '2d') renderPlan2D();
+      }
+    }
+
+    function syncFineTuneUI() {
+      const opt = getActiveOption();
+      const p = opt.placed.find(x => x.item.id === state.selectedPlacementId);
+      if (!p) return;
+
+      const others = opt.placed.filter(o => o.item.id !== p.item.id);
+      const val = validatePlacement(p.item, p.x, p.z, p.rot, others);
+
+      document.getElementById('ftTitle').textContent = p.item.name;
+      document.getElementById('ftDims').textContent = `${p.item.w}×${p.item.d}×${p.item.h} cm`;
+      document.getElementById('ftRot').textContent = `${p.rot}°`;
+
+      const maxX = Math.max(0, Math.round(ROOM.W - val.body.dx));
+      const maxZ = Math.max(0, Math.round(ROOM.L - val.body.dz));
+      const sx = document.getElementById('ftSliderX');
+      const sz = document.getElementById('ftSliderZ');
+      sx.max = maxX; sz.max = maxZ;
+      sx.value = Math.round(p.x);
+      sz.value = Math.round(p.z);
+      document.getElementById('ftValX').textContent = Math.round(p.x);
+      document.getElementById('ftValZ').textContent = Math.round(p.z);
+
+      const vBox = document.getElementById('ftValidationBox');
+      if (val.valid) {
+        vBox.className = 'rounded-xl px-2.5 py-1.5 text-[11px] font-semibold border bg-emerald-50 border-emerald-200 text-emerald-800';
+        vBox.textContent = 'Posición válida · Cumple todas las reglas del cuarto';
+      } else {
+        vBox.className = 'rounded-xl px-2.5 py-1.5 text-[11px] font-semibold border bg-red-50 border-red-300 text-red-800';
+        vBox.textContent = 'Alerta: ' + val.violations[0];
+      }
+    }
+
+    function sliderMoveSelected() {
+      const opt = getActiveOption();
+      const p = opt.placed.find(x => x.item.id === state.selectedPlacementId);
+      if (!p) return;
+      p.x = parseFloat(document.getElementById('ftSliderX').value);
+      p.z = parseFloat(document.getElementById('ftSliderZ').value);
+      onManualTransformChanged();
+    }
+
+    function nudgeSelected(dx, dz) {
+      const opt = getActiveOption();
+      const p = opt.placed.find(x => x.item.id === state.selectedPlacementId);
+      if (!p) return;
+      const { body } = getPlacementRects(p.item, p.x, p.z, p.rot);
+      p.x = Math.max(0, Math.min(ROOM.W - body.dx, p.x + dx));
+      p.z = Math.max(0, Math.min(ROOM.L - body.dz, p.z + dz));
+      onManualTransformChanged();
+    }
+
+    function rotateSelected90() {
+      const opt = getActiveOption();
+      const p = opt.placed.find(x => x.item.id === state.selectedPlacementId);
+      if (!p) return;
+      p.rot = (p.rot + 90) % 360;
+      const { body } = getPlacementRects(p.item, p.x, p.z, p.rot);
+      p.x = Math.max(0, Math.min(ROOM.W - body.dx, p.x));
+      p.z = Math.max(0, Math.min(ROOM.L - body.dz, p.z));
+      onManualTransformChanged();
+    }
+
+    function onManualTransformChanged() {
+      const opt = getActiveOption();
+      const metrics = computeLayoutMetrics(opt.placed);
+      opt.freeFloorM2 = metrics.freeFloorM2;
+      opt.minWardrobeDist = metrics.minWardrobeDist;
+      opt.notes = metrics.notes;
+
+      syncFineTuneUI();
+      renderOptionsBar();
+      updateStatusOverlays();
+      rebuild3DFurniture();
+      if (state.viewMode === '2d') renderPlan2D();
+    }
+
+    /*************************************************************************
+     * 9. RENDERIZADO DE UI (CATÁLOGO IKEA, LISTA MUEBLES, TARJETAS OPCIONES)
+     *************************************************************************/
+    function renderIkeaCatalog() {
+      const container = document.getElementById('ikeaCatalogContainer');
+      container.innerHTML = IKEA_CATALOG.map((grp, gi) => `
+        <div class="space-y-1.5">
+          <h3 class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">${grp.group}</h3>
+          <div class="grid grid-cols-1 gap-1.5">
+            ${grp.items.map((it, ii) => `
+              <button onclick="addCatalogItem(${gi}, ${ii})"
+                class="w-full text-left p-2 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 bg-white transition flex items-center justify-between gap-2 group active:scale-[0.99]">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0" style="background:${it.color}"></span>
+                    <span class="text-xs font-bold text-slate-800 truncate">${it.name}</span>
+                  </div>
+                  <div class="text-[10px] text-slate-500 mt-0.5 pl-4">
+                    ${it.w}×${it.d}×${it.h} cm · Frontal ${it.front} cm · <span class="text-indigo-600 font-semibold">${it.tag}</span>
+                  </div>
+                </div>
+                <span class="shrink-0 w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-indigo-600 group-hover:text-white text-slate-600 flex items-center justify-center font-bold text-sm transition">+</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function addCatalogItem(gi, ii) {
+      const it = IKEA_CATALOG[gi].items[ii];
+      addFurnitureItem(it);
+    }
+
+    function renderOptionsBar() {
+      const bar = document.getElementById('optionsCardsBar');
+      if (state.options.length === 0) {
+        bar.innerHTML = `<div class="text-xs text-slate-500 py-1">Añade muebles en el panel izquierdo para generar opciones automáticamente.</div>`;
+        return;
+      }
+
+      bar.innerHTML = state.options.map((opt, idx) => {
+        const active = idx === state.activeOptionIdx;
+        const hasDenied = opt.denied.length > 0;
+        const borderCls = active
+          ? 'border-indigo-500 bg-indigo-50/70 ring-1 ring-indigo-300 shadow-sm'
+          : 'border-slate-200 bg-white hover:bg-slate-50';
+        return `
+          <button onclick="selectOption(${idx})"
+            class="shrink-0 min-w-[205px] max-w-[245px] text-left rounded-xl border p-2 transition ${borderCls}">
+            <div class="flex items-center justify-between gap-1.5">
+              <span class="text-[11px] font-extrabold ${active ? 'text-indigo-900' : 'text-slate-800'} truncate">
+                Opción ${idx + 1}: ${opt.title}
+              </span>
+              <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}">
+                ${opt.score}/100
+              </span>
+            </div>
+            <div class="mt-1 flex items-center flex-wrap gap-1.5 text-[10px]">
+              <span class="font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                ${opt.placed.length} colocados
+              </span>
+              ${hasDenied ? `<span class="font-bold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md">${opt.denied.length} denegado${opt.denied.length > 1 ? 's' : ''}</span>` : ''}
+              <span class="font-semibold text-slate-600 ml-auto">${opt.freeFloorM2} m² libres</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderSelectedItemsList() {
+      const list = document.getElementById('selectedItemsList');
+      document.getElementById('selectedCount').textContent = state.items.length;
+
+      if (state.items.length === 0) {
+        list.innerHTML = `
+          <div class="p-4 text-center rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
+            No hay muebles seleccionados. Usa el catálogo IKEA, pega una ficha o añade medidas manuales.
+          </div>`;
+        return;
+      }
+
+      const opt = getActiveOption();
+      const placedMap = new Map(opt.placed.map(p => [p.item.id, p]));
+      const deniedMap = new Map(opt.denied.map(d => [d.item.id, d]));
+
+      list.innerHTML = state.items.map(item => {
+        const p = placedMap.get(item.id);
+        const d = deniedMap.get(item.id);
+        const isPlaced = !!p;
+        const isSel = state.selectedPlacementId === item.id;
+
+        let validNow = true;
+        if (p) {
+          const others = opt.placed.filter(o => o.item.id !== item.id);
+          validNow = validatePlacement(p.item, p.x, p.z, p.rot, others).valid;
+        }
+
+        const cardCls = !isPlaced
+          ? 'border-red-200 bg-red-50/40'
+          : (isSel ? 'border-indigo-400 bg-indigo-50/40 ring-1 ring-indigo-200' : 'border-slate-200 bg-white hover:border-slate-300');
+
+        const badgeHtml = !isPlaced
+          ? `<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-red-600 text-white shrink-0">DENEGADO</span>`
+          : (validNow
+              ? `<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-emerald-600 text-white shrink-0">COLOCADO</span>`
+              : `<span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-amber-500 text-white shrink-0">AJUSTAR</span>`);
+
+        return `
+          <div class="rounded-xl border p-2.5 transition ${cardCls}">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0 flex-1 ${isPlaced ? 'cursor-pointer' : ''}" ${isPlaced ? `onclick="selectPlacementForFineTune('${item.id}')"` : ''}>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0" style="background:${item.color}"></span>
+                  <span class="text-xs font-bold text-slate-800 truncate">${item.name}</span>
+                </div>
+                <div class="text-[10px] text-slate-500 mt-0.5 pl-4">
+                  ${item.cat} · <strong>${item.w}×${item.d}×${item.h} cm</strong> · Frontal ${item.front} cm
+                </div>
+              </div>
+              ${badgeHtml}
+            </div>
+
+            ${d ? `<div class="mt-1.5 text-[11px] font-medium text-red-700 bg-red-100/70 border border-red-200 rounded-lg px-2 py-1 leading-snug">${d.reason}</div>` : ''}
+
+            <div class="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2">
+              <div class="text-[10px] text-slate-500">
+                ${p ? `Pos: X=${Math.round(p.x)}, Z=${Math.round(p.z)} · Rot ${p.rot}°` : 'No cabe en esta opción'}
+              </div>
+              <div class="flex items-center gap-1">
+                ${p ? `<button onclick="selectPlacementForFineTune('${item.id}')" class="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-0.5 rounded-md">Mover</button>` : ''}
+                <button onclick="editFurnitureItem('${item.id}')" class="text-[10px] font-semibold text-slate-600 hover:bg-slate-100 px-2 py-0.5 rounded-md">Editar</button>
+                <button onclick="deleteFurnitureItem('${item.id}')" class="text-[10px] font-semibold text-red-600 hover:bg-red-50 px-2 py-0.5 rounded-md">Quitar</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateStatusOverlays() {
+      const opt = getActiveOption();
+      const notesEl = document.getElementById('ergoNotesPill');
+      notesEl.innerHTML = `
+        <span class="font-bold text-slate-900">${opt.freeFloorM2} m² suelo libre</span>
+        <span class="text-slate-300">•</span>
+        ${opt.notes.map(n => `<span class="font-medium text-slate-600">${n}</span>`).join('<span class="text-slate-300">•</span>')}
+      `;
+
+      const deniedBanner = document.getElementById('deniedAlertBanner');
+      if (opt.denied.length > 0) {
+        deniedBanner.classList.remove('hidden');
+        deniedBanner.innerHTML = `
+          <div class="font-extrabold text-red-900 mb-1">
+            ${opt.denied.length} mueble${opt.denied.length > 1 ? 's' : ''} DENEGADO${opt.denied.length > 1 ? 'S' : ''} en esta opción:
+          </div>
+          <ul class="space-y-0.5 list-disc pl-4">
+            ${opt.denied.map(d => `<li><strong>${d.item.name}</strong>: ${d.reason}</li>`).join('')}
+          </ul>
+        `;
+      } else {
+        deniedBanner.classList.add('hidden');
+      }
+    }
+
+    /*************************************************************************
+     * 10. CONTROLES DE UI, CÁMARAS, COLORES Y COPIADO AL PORTAPAPELES
+     *************************************************************************/
+    function setInputTab(tab) {
+      ['paste', 'ikea', 'manual'].forEach(t => {
+        const panel = document.getElementById(`panel${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btn = document.getElementById(`inputTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const active = t === tab;
+        panel.classList.toggle('hidden', !active);
+        btn.className = active
+          ? 'px-2 py-1.5 rounded-lg text-[11px] font-bold transition bg-white text-slate-900 shadow-sm'
+          : 'px-2 py-1.5 rounded-lg text-[11px] font-bold transition text-slate-600 hover:text-slate-900';
+      });
+    }
+
+    function syncDefaultFront(prefix) {
+      const cat = document.getElementById(`${prefix}Cat`).value;
+      document.getElementById(`${prefix}Front`).value = CATEGORY_DEFAULTS[cat]?.front ?? 40;
+    }
+
+    function setManualColor(hex) {
+      document.getElementById('mColor').value = hex;
+    }
+
+    function selectOption(idx) {
+      state.activeOptionIdx = idx;
+      closeFineTune(false);
+      renderOptionsBar();
+      renderSelectedItemsList();
+      updateStatusOverlays();
+      rebuild3DFurniture();
+      if (state.viewMode === '2d') renderPlan2D();
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      document.getElementById('viewport3D').classList.toggle('hidden', mode !== '3d');
+      document.getElementById('viewport2D').classList.toggle('hidden', mode !== '2d');
+      document.getElementById('cameraBar').classList.toggle('hidden', mode !== '3d');
+
+      document.getElementById('btnView3D').className = mode === '3d'
+        ? 'px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1'
+        : 'px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1';
+      document.getElementById('btnView2D').className = mode === '2d'
+        ? 'px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-slate-900 shadow-sm flex items-center gap-1'
+        : 'px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1';
+
+      if (mode === '3d') handleResize();
+      else renderPlan2D();
+    }
+
+    function toggleVisualOption(key) {
+      state.visuals[key] = !state.visuals[key];
+      syncVisualButtons();
+      if (dynamicZonesGroup) dynamicZonesGroup.visible = state.visuals.zones;
+      if (state.viewMode === '2d') renderPlan2D();
+    }
+
+    function syncVisualButtons() {
+      const styleBtn = (id, active, onCls, offCls) => {
+        const el = document.getElementById(id);
+        if (el) el.className = active ? onCls : offCls;
+      };
+      styleBtn('btnObstacles', state.visuals.obstacles,
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-orange-500 bg-orange-500 text-white shadow-sm transition flex items-center gap-1',
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-orange-200 bg-orange-50/70 text-orange-800 hover:bg-orange-100 transition flex items-center gap-1');
+      styleBtn('btnZones', state.visuals.zones,
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-emerald-600 bg-emerald-600 text-white shadow-sm transition flex items-center gap-1',
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100 transition flex items-center gap-1');
+      styleBtn('btnDoors', state.visuals.doors,
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-sky-600 bg-sky-600 text-white shadow-sm transition flex items-center gap-1',
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-sky-200 bg-sky-50/70 text-sky-800 hover:bg-sky-100 transition flex items-center gap-1');
+      styleBtn('btnLabels', state.visuals.labels,
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-800 bg-slate-800 text-white shadow-sm transition',
+        'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 transition');
+    }
+
+    function setWallColor(key) {
+      if (!WALL_PALETTES[key]) return;
+      state.wallColorKey = key;
+      if (materials.wall) materials.wall.color.setHex(WALL_PALETTES[key].hex);
+      document.querySelectorAll('.wall-dot').forEach(btn => {
+        btn.className = btn.dataset.wall === key
+          ? 'wall-dot w-5 h-5 rounded-full border-2 border-indigo-600 scale-110 shadow-sm transition'
+          : 'wall-dot w-5 h-5 rounded-full border border-slate-300 shadow-sm transition';
+      });
+    }
+
+    function setCameraPreset(preset) {
+      if (!isWebGLReady) return;
+      if (state.viewMode !== '3d') setViewMode('3d');
+      const presets = {
+        perspective: { pos: [78, 255, 505],    look: [158, 82, 152] },
+        door:        { pos: [54, 152, 314],    look: [208, 90, 102] },
+        window:      { pos: [226, 154, 24],    look: [128, 80, 248] },
+        top:         { pos: [146.5, 535, 182], look: [146.5, 0, 164] }
+      };
+      const cfg = presets[preset] || presets.perspective;
+      state.cameraLerp.targetPos.set(...cfg.pos);
+      state.cameraLerp.targetLook.set(...cfg.look);
+      state.cameraLerp.active = true;
+
+      document.querySelectorAll('.cam-btn').forEach(btn => {
+        btn.className = btn.dataset.cam === preset
+          ? 'cam-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-slate-900 text-white shadow-sm'
+          : 'cam-btn shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition text-slate-600 hover:bg-slate-100';
+      });
+    }
+
+    function toggleLeftPanel() {
+      state.leftPanelOpen = !state.leftPanelOpen;
+      document.getElementById('leftPanel').classList.toggle('-translate-x-full', !state.leftPanelOpen);
+      document.getElementById('mobileBackdrop').classList.toggle('hidden', !state.leftPanelOpen);
+    }
+
+    /**
+     * Genera y copia el resumen completo al portapapeles usando document.execCommand('copy')
+     */
+    function copyRoomSummary() {
+      const opt = getActiveOption();
+      const rotWall = r => r === 0 ? 'Pared Ventana (mira Sur)' : r === 90 ? 'Pared Derecha (mira Armario)' : r === 180 ? 'Pared Puerta (mira Norte)' : 'Orientado al Este';
+      const lines = [
+        `RESUMEN DEL DORMITORIO (293 × 328 × 248 cm)`,
+        `Opción activa: ${opt.title} (${opt.score}/100)`,
+        `Suelo libre: ${opt.freeFloorM2} m² · Paso frente al armario empotrado: ${opt.minWardrobeDist} cm`,
+        ``,
+        `MUEBLES APROBADOS Y COLOCADOS (${opt.placed.length}):`,
+        ...opt.placed.map(p => `- ${p.item.name} (${p.item.w}×${p.item.d}×${p.item.h} cm, frontal ${p.item.front} cm) -> X:${Math.round(p.x)} cm, Z:${Math.round(p.z)} cm, ${rotWall(p.rot)}`),
+      ];
+      if (opt.denied.length > 0) {
+        lines.push(``, `MUEBLES DENEGADOS (${opt.denied.length}):`);
+        opt.denied.forEach(d => lines.push(`- ${d.item.name} (${d.item.w}×${d.item.d}×${d.item.h} cm): ${d.reason}`));
+      }
+
+      const ta = document.createElement('textarea');
+      ta.value = lines.join('\n');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('Resumen del cuarto copiado al portapapeles');
+      } catch (e) {
+        showToast('No se pudo copiar automáticamente', true);
+      }
+      document.body.removeChild(ta);
+    }
+
+    let toastTimer = null;
+    function showToast(msg, isError = false) {
+      const box = document.getElementById('toastBox');
+      const inner = document.getElementById('toastMsg');
+      inner.textContent = msg;
+      inner.className = isError
+        ? 'bg-red-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl border border-red-400'
+        : 'bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl border border-slate-700';
+      box.classList.remove('opacity-0', 'translate-y-2');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        box.classList.add('opacity-0', 'translate-y-2');
+      }, 2800);
+    }
+
+    function handleResize() {
+      if (isWebGLReady && renderer && camera) {
+        const vp = document.getElementById('viewport3D');
+        const w = vp.clientWidth, h = vp.clientHeight;
+        if (w > 0 && h > 0) {
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+      }
+      if (state.viewMode === '2d') renderPlan2D();
+    }
+
+    /*************************************************************************
+     * 11. ARRANQUE INICIAL
+     *************************************************************************/
+    window.onload = function () {
+      state.items = loadItems();
+      renderIkeaCatalog();
+      syncVisualButtons();
+      init3D();
+      init2DClickSelection();
+      recomputeCurrentLayouts();
+      window.addEventListener('resize', handleResize);
+      animateLoop();
+    };
+  </script>
+</body>
+</html>
